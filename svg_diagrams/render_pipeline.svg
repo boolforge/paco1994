@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="750" viewBox="0 0 1400 750">
+<rect width="1400" height="750" fill="#0F1219"/>
+<style>text{font-family:"Segoe UI",Arial,sans-serif;fill:#FFFFFF;} .ttl{fill:#DCE6FF;font-size:17px;} .sub{fill:#96AAC8;font-size:12px;} .stg{font-size:12px;} .arrlbl{fill:#78A0DC;font-size:11px;} .note{fill:#FFC864;font-size:11px;}</style>
+<text x="700" y="26" text-anchor="middle" class="ttl">PACO EL HARE 1994 — COMPLETE PER-FRAME RENDERING PIPELINE (verified layer order)</text>
+<text x="700" y="46" text-anchor="middle" class="sub">Per-frame sequence: refresca_pantalla() -&gt; all layer blits -&gt; VUELCA_PANTALLA()</text>
+<rect x="60" y="70" width="300" height="80" fill="#1A237E" stroke="#DCDCDC" stroke-width="1.5" rx="4"/>
+<text x="68" y="88" class="stg" font-weight="bold">1. SCENE LOAD</text>
+<text x="68" y="104" class="stg" >_lee_dibujos(X.ALG)</text>
+<text x="68" y="120" class="stg" >RLE decode -> 64000B buf</text>
+<rect x="60" y="190" width="300" height="80" fill="#1B5E20" stroke="#DCDCDC" stroke-width="1.5" rx="4"/>
+<text x="68" y="208" class="stg" font-weight="bold">2. ALD DECODE</text>
+<text x="68" y="224" class="stg" >XOR-0xFF + parse</text>
+<text x="68" y="240" class="stg" >hotspots + disc-objs</text>
+<rect x="60" y="310" width="300" height="80" fill="#4A148C" stroke="#DCDCDC" stroke-width="1.5" rx="4"/>
+<text x="68" y="328" class="stg" font-weight="bold">3. VOC PRELOAD</text>
+<text x="68" y="344" class="stg" >_lee_ficheros_voc()</text>
+<text x="68" y="360" class="stg" >dir_voc_s1/s2/s3</text>
+<rect x="60" y="430" width="300" height="80" fill="#E65100" stroke="#DCDCDC" stroke-width="1.5" rx="4"/>
+<text x="68" y="448" class="stg" font-weight="bold">4. CMF MUSIC</text>
+<text x="68" y="464" class="stg" >ELIGEFICHFM(scene music)</text>
+<text x="68" y="480" class="stg" >OPL2 via SBFMDRV.COM</text>
+<rect x="440" y="70" width="260" height="80" fill="#37474F" stroke="#DCDCDC" stroke-width="1.5" rx="4"/>
+<text x="448" y="88" class="stg" font-weight="bold">5. CLEAR BACKBUF</text>
+<text x="448" y="104" class="stg" >_borra_pantalla()</text>
+<text x="448" y="120" class="stg" >fill palette idx 0</text>
+<rect x="440" y="190" width="260" height="80" fill="#0277BD" stroke="#DCDCDC" stroke-width="1.5" rx="4"/>
+<text x="448" y="208" class="stg" font-weight="bold">6. BG BLIT</text>
+<text x="448" y="224" class="stg" >_pon_dibujos()</text>
+<text x="448" y="240" class="stg" >64000B memcpy</text>
+<rect x="440" y="310" width="260" height="80" fill="#00695C" stroke="#DCDCDC" stroke-width="1.5" rx="4"/>
+<text x="448" y="328" class="stg" font-weight="bold">7. DISC-OBJECTS</text>
+<text x="448" y="344" class="stg" >_pon_dibujos_colocao()</text>
+<text x="448" y="360" class="stg" >masked blit from 99.ALG</text>
+<rect x="440" y="430" width="260" height="80" fill="#827717" stroke="#DCDCDC" stroke-width="1.5" rx="4"/>
+<text x="448" y="448" class="stg" font-weight="bold">8. PACO SPRITE</text>
+<text x="448" y="464" class="stg" >_pon_hare()</text>
+<text x="448" y="480" class="stg" >DIBUJA_BLOQUE_CON_MASK</text>
+<rect x="440" y="550" width="260" height="80" fill="#4E342E" stroke="#DCDCDC" stroke-width="1.5" rx="4"/>
+<text x="448" y="568" class="stg" font-weight="bold">9. HUD/MENU</text>
+<text x="448" y="584" class="stg" >_pon_dibujos_menu()</text>
+<text x="448" y="600" class="stg" >inventory overlay</text>
+<rect x="780" y="70" width="260" height="80" fill="#880E4F" stroke="#DCDCDC" stroke-width="1.5" rx="4"/>
+<text x="788" y="88" class="stg" font-weight="bold">10. DIALOG TEXT</text>
+<text x="788" y="104" class="stg" >_hablar(text,als)</text>
+<text x="788" y="120" class="stg" >_centra_texto</text>
+<rect x="780" y="190" width="260" height="80" fill="#BF360C" stroke="#DCDCDC" stroke-width="1.5" rx="4"/>
+<text x="788" y="208" class="stg" font-weight="bold">11. AUDIO TRIGGER</text>
+<text x="788" y="224" class="stg" >ELIGEFICHFX(als)</text>
+<text x="788" y="240" class="stg" >ctvd_output DMA</text>
+<rect x="780" y="310" width="260" height="80" fill="#004D40" stroke="#DCDCDC" stroke-width="1.5" rx="4"/>
+<text x="788" y="328" class="stg" font-weight="bold">12. INPUT POLL</text>
+<text x="788" y="344" class="stg" >INT 33h AX=3</text>
+<text x="788" y="360" class="stg" >x_raton,y_raton,buttons</text>
+<rect x="780" y="430" width="260" height="80" fill="#263238" stroke="#DCDCDC" stroke-width="1.5" rx="4"/>
+<text x="788" y="448" class="stg" font-weight="bold">13. HIT TEST</text>
+<text x="788" y="464" class="stg" >_comprueba(x,y)</text>
+<text x="788" y="480" class="stg" >rect contains -> dispatch</text>
+<rect x="780" y="550" width="260" height="80" fill="#B71C1C" stroke="#DCDCDC" stroke-width="1.5" rx="4"/>
+<text x="788" y="568" class="stg" font-weight="bold">14. PAGE FLIP</text>
+<text x="788" y="584" class="stg" >_VUELCA_PANTALLA()</text>
+<text x="788" y="600" class="stg" >REP MOVSW ->A000:0000</text>
+<rect x="1120" y="280" width="180" height="140" fill="#E65100" stroke="#DCDCDC" stroke-width="1.5" rx="4"/>
+<text x="1128" y="298" class="stg" font-weight="bold">A000:0000</text>
+<text x="1128" y="314" class="stg" >VGA VRAM</text>
+<text x="1128" y="330" class="stg" >320x200</text>
+<text x="1128" y="346" class="stg" >256 colors</text>
+<line x1="360" y1="110" x2="440" y2="110" stroke="#6496DC" stroke-width="2"/>
+<polygon points="440,110 432,106 432,114" fill="#6496DC"/>
+<text x="400" y="104" class="arrlbl">parse scene</text>
+<line x1="360" y1="230" x2="440" y2="230" stroke="#6496DC" stroke-width="2"/>
+<polygon points="440,230 432,226 432,234" fill="#6496DC"/>
+<text x="400" y="224" class="arrlbl">decode hotspots</text>
+<line x1="360" y1="350" x2="440" y2="350" stroke="#6496DC" stroke-width="2"/>
+<polygon points="440,350 432,346 432,354" fill="#6496DC"/>
+<text x="400" y="344" class="arrlbl">preload audio</text>
+<line x1="700" y1="110" x2="780" y2="110" stroke="#6496DC" stroke-width="2"/>
+<polygon points="780,110 772,106 772,114" fill="#6496DC"/>
+<text x="740" y="104" class="arrlbl">layer 1: bg</text>
+<line x1="700" y1="230" x2="780" y2="230" stroke="#6496DC" stroke-width="2"/>
+<polygon points="780,230 772,226 772,234" fill="#6496DC"/>
+<text x="740" y="224" class="arrlbl">layer 2: sprites</text>
+<line x1="700" y1="350" x2="780" y2="350" stroke="#6496DC" stroke-width="2"/>
+<polygon points="780,350 772,346 772,354" fill="#6496DC"/>
+<text x="740" y="344" class="arrlbl">layer 3: paco</text>
+<line x1="700" y1="470" x2="780" y2="470" stroke="#6496DC" stroke-width="2"/>
+<polygon points="780,470 772,466 772,474" fill="#6496DC"/>
+<text x="740" y="464" class="arrlbl">layer 4: menu</text>
+<line x1="700" y1="590" x2="780" y2="590" stroke="#6496DC" stroke-width="2"/>
+<polygon points="780,590 772,586 772,594" fill="#6496DC"/>
+<text x="740" y="584" class="arrlbl">layer 5: text</text>
+<line x1="1040" y1="110" x2="1120" y2="340" stroke="#6496DC" stroke-width="2"/>
+<polygon points="1120,340 1112,336 1112,344" fill="#6496DC"/>
+<text x="1080" y="219" class="arrlbl">composite</text>
+<line x1="1040" y1="230" x2="1120" y2="340" stroke="#6496DC" stroke-width="2"/>
+<polygon points="1120,340 1112,336 1112,344" fill="#6496DC"/>
+<line x1="1040" y1="350" x2="1120" y2="340" stroke="#6496DC" stroke-width="2"/>
+<polygon points="1120,340 1112,336 1112,344" fill="#6496DC"/>
+<line x1="1040" y1="470" x2="1120" y2="340" stroke="#6496DC" stroke-width="2"/>
+<polygon points="1120,340 1112,336 1112,344" fill="#6496DC"/>
+<line x1="1040" y1="590" x2="1120" y2="340" stroke="#6496DC" stroke-width="2"/>
+<polygon points="1120,340 1112,336 1112,344" fill="#6496DC"/>
+<text x="780" y="700" class="note">* No PIT reprogramming confirmed — frame rate is CPU-speed-dependent, not V-Sync-gated</text>
+<text x="780" y="718" class="note">* Back-buffer: 64000-byte far-heap allocation, unconditionally re-copied whole every frame (no dirty-rect tracking)</text>
+</svg>

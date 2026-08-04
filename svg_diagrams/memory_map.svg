@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="900" viewBox="0 0 1300 900">
+<rect width="1300" height="900" fill="#12141E"/>
+<style>text{font-family:"Segoe UI",Arial,sans-serif;} .ttl{fill:#DCE6FF;font-size:18px;} .sub{fill:#96AAC8;font-size:13px;} .addr{fill:#96DC96;font-size:12px;font-family:monospace;} .lbl{fill:#E6E6E6;font-size:12px;}</style>
+<text x="650" y="26" text-anchor="middle" class="ttl">DOS REAL-MODE 1MB MEMORY MAP — HARE.EXE Runtime (verified region boundaries)</text>
+<text x="650" y="46" text-anchor="middle" class="sub">Addresses 0x00000–0xFFFFF | Confirmed exact: TDS trailer at 0x0E4A6 matches MZ-header-computed image size to the byte</text>
+<rect x="90" y="60" width="220" height="3" fill="#C62828" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="65" class="addr">0x00000–0x003FF</text>
+<rect x="90" y="60" width="220" height="3" fill="#AD1457" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="65" class="addr">0x00400–0x004FF</text>
+<rect x="90" y="60" width="220" height="3" fill="#6A1B9A" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="65" class="addr">0x00500–0x007FF</text>
+<rect x="90" y="61" width="220" height="14" fill="#283593" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="72" class="addr">0x00800–0x04FFF</text>
+<text x="460" y="65" class="lbl" font-size="10">DOS kernel + COMMAND.COM (~18KB)</text>
+<rect x="90" y="75" width="220" height="25" fill="#1565C0" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="89" class="addr">0x05000–0x0CFFF</text>
+<text x="460" y="91" class="lbl">SBFMDRV.COM TSR (~8KB loaded here)</text>
+<rect x="90" y="100" width="220" height="60" fill="#0277BD" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="114" class="addr">0x0D000–0x1FFFF</text>
+<text x="460" y="134" class="lbl">Environment + TSRs / free conventional (~72KB)</text>
+<rect x="90" y="160" width="220" height="44" fill="#1B5E20" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="174" class="addr">0x20000–0x2E4A5</text>
+<text x="460" y="186" class="lbl">HARE.EXE code+data image (58.5KB)</text>
+<rect x="90" y="204" width="220" height="31" fill="#33691E" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="218" class="addr">0x2E4A6–0x37FFF</text>
+<text x="460" y="223" class="lbl">Far heap: ALG buffer, ct-voice.drv, VOC preload (~37KB)</text>
+<rect x="90" y="235" width="220" height="19" fill="#558B2F" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="248" class="addr">0x38000–0x3E1FF</text>
+<text x="460" y="248" class="lbl">Far heap: back-buffer (64000B)</text>
+<rect x="90" y="254" width="220" height="56" fill="#9E6706" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="268" class="addr">0x3E200–0x4FFFF</text>
+<text x="460" y="286" class="lbl">Additional far heap / stack segment (~72KB)</text>
+<rect x="90" y="310" width="220" height="250" fill="#37474F" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="324" class="addr">0x50000–0x9FFFF</text>
+<text x="460" y="439" class="lbl">Unused conventional memory (~320KB)</text>
+<rect x="90" y="560" width="220" height="50" fill="#E65100" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="574" class="addr">0xA0000–0xAFFFF</text>
+<text x="460" y="589" class="lbl">VGA VRAM — Mode 13h active window (64KB)</text>
+<rect x="90" y="610" width="220" height="50" fill="#4E342E" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="624" class="addr">0xB0000–0xBFFFF</text>
+<text x="460" y="639" class="lbl">Mono/CGA VRAM (unused)</text>
+<rect x="90" y="660" width="220" height="50" fill="#37474F" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="674" class="addr">0xC0000–0xCFFFF</text>
+<text x="460" y="689" class="lbl">VGA BIOS ROM</text>
+<rect x="90" y="710" width="220" height="50" fill="#4A148C" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="724" class="addr">0xD0000–0xDFFFF</text>
+<text x="460" y="739" class="lbl">EMS Page Frame (SCOVA.EXE only, 4x16KB slots)</text>
+<rect x="90" y="760" width="220" height="100" fill="#212121" stroke="#C8C8C8" stroke-width="1"/>
+<text x="322" y="774" class="addr">0xE0000–0xFFFFF</text>
+<text x="460" y="814" class="lbl">System BIOS ROM (128KB)</text>
+</svg>

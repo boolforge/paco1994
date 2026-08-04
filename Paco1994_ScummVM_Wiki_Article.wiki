@@ -1,0 +1,1606 @@
+<!--
+=====================================================================
+EDITORIAL NOTE (remove before publishing — not part of the article)
+=====================================================================
+This page was drafted offline against wiki.scummvm.org's live site,
+which sits behind an Anubis anti-bot challenge that blocks automated
+fetches. Every fact below was independently verified against the
+actual game binaries (see "Verification method" in each section).
+Two things could NOT be verified against the live wiki and should be
+checked by an editor with normal browser access before publishing:
+  1. The exact parameter names accepted by Template:EngineDescription
+     (confirmed to exist and to be the standard engine-page infobox,
+     via its cross-reference on Template:GameDescription, but its own
+     parameter list was not reachable). The call below uses the most
+     conservative, self-evident parameter names; adjust to match the
+     template's actual signature.
+  2. Whether Category:Alcachofa or a similarly-named category already
+     exists from the unrelated OpenGL "Alcachofa" engine (Helco's
+     Mortadelo y Filemón 3D engine, actively developed, unrelated to
+     this 1994 DOS title beyond sharing a developer/category name).
+     If so, this article's engine should use a disambiguated category
+     such as Category:Paco1994 to avoid collision — see "Relationship
+     to the existing Alcachofa engine" section below for why the two
+     are unrelated codebases.
+=====================================================================
+-->
+{{EngineDescription
+|name=Paco1994
+|status=Not Yet Implemented
+|developer=Alcachofa Soft S.L.
+|scummvm_developer=
+|language=C (Borland Turbo C 2.0)
+|architecture=Hybrid: data-driven scene layer + hardcoded narrative layer
+|platform=DOS
+|firstgame=1994
+|lastgame=1994
+|github=
+}}
+
+'''Paco1994''' is the working name for a not-yet-implemented ScummVM engine targeting '''''Paco El Hare vs Los Marcianos Siderales''''' ("Paco the Hare vs. the Sidereal Martians"), a 1994 Spanish MS-DOS freeware title by '''Alcachofa Soft S.L.''' — the same studio later responsible for ''[[Drascula: The Vampire Strikes Back]]''. The 1994 title is a small, unfinished point-and-click adventure tech demo, not a commercial release. This page documents the complete reverse-engineering of its file formats and runtime behavior, undertaken to evaluate and prepare its addition to ScummVM.
+
+__TOC__
+
+== Overview ==
+
+''Paco El Hare vs Los Marcianos Siderales'' is a 320×200, 256-color VGA Mode 13h point-and-click adventure running natively under MS-DOS Real Mode (x86 16-bit). It was distributed as freeware, apparently as a conceptual prototype or vertical-slice demo rather than a finished commercial product: the available distribution contains only 5 of an implied 11+ scenes, and several referenced assets (a shared sprite sheet, some scene backgrounds, some dialogue audio, and all background music files) are absent from every known copy of the release.
+
+The engine is architecturally '''hybrid''': room geometry, hotspot rectangles, door connectivity, and sprite placement are '''data-driven''', read at runtime from small per-scene <code>.ALD</code> text files. Dialogue text, puzzle logic, and item-interaction rules are '''hardcoded''' as C <code>if</code>/<code>switch</code> chains compiled directly into the main executable, <code>HARE.EXE</code>. There is no bytecode, no script interpreter, and no external narrative script file of any kind — a point worth stating plainly because it is easy to over-read the presence of a data file format as evidence of a full scripting system, which this engine does not have.
+
+== Legal status ==
+
+The game's title screen carries no explicit license text beyond an implied "freeware" distribution; no separate license file has been found in any known copy. Under Spanish and EU intellectual-property law, informal "freeware" distribution does not by itself grant modification, redistribution, or reverse-engineering-for-competition rights — it grants permission to use the software at no cost, nothing more.
+
+'''Major update: this game has a legitimate, current, free official re-release.''' As of February 2, 2024, ''Paco El Hare vs Los Marcianos Siderales'' is distributed for free on Steam (App ID 1643000), with '''Alcachofa Soft''' credited as developer and '''Erbe Software''' credited as publisher — confirmed directly from the official Steam store listing, not a third-party aggregator. The store description explicitly frames it as this same 1994 demo, historically significant as "the first development by Alcachofa Soft," originally pitched to Dinamic Multimedia, whose technology and concept directly fed into the creation of ''Drascula: The Vampire Strikes Back''. This is not a remake or a completed sequel; it is the same unfinished tech demo, formally re-released.
+
+'''Erbe Software, S.L.''' is a real, currently-operating, registered Spanish company (CIF B76782309, Registro Mercantil de Santa Cruz de Tenerife, tomo 3597, folio 42, hoja TF-61859), directed by '''Marcos García de la Rosa''', founded in late 2018 and independent since the end of 2024. Their published catalog (confirmed via their own itch.io storefront) includes multiple '''other''' Alcachofa Soft titles under active republication — ''Drascula: The Vampire Strikes Back'' and ''The Abbey — Director's Cut'' among them — indicating an ongoing, multi-title publishing relationship with the Alcachofa Soft catalog, not a one-off arrangement specific to this game. Erbe Software also republishes the Mortadelo y Filemón game series digitally — the exact same license family targeted by the '''existing, unrelated''' ScummVM <code>alcachofa</code> engine described under [[#Relationship to the existing Alcachofa engine|Relationship to the existing Alcachofa engine]] below. A single modern rights-holder therefore sits behind both that existing engine's source material and this article's subject, which is a materially useful fact for any future contact: '''proyectos@erbesoftware.com''' is Erbe Software's own listed address specifically for external parties proposing collaborative publishing/preservation work, alongside general (contacto@) and press (prensa@) addresses.
+
+'''Provenance of the analysis in this article:''' the complete original file set examined here — including the six previously-unavailable scenes, the sprite sheet, all five music files, and the voice driver — was sourced from a DOSBox-ready preservation package whose included shortcut file resolves to <code>https://www.abandonsocios.org/wiki/Paco_el_Hare_vs_los_Marcianos_Siderales</code>, a page on AbandonSocios ("the portal of old games"), a longstanding Spanish abandonware/retro-gaming preservation community. The package's own bundled <code>dosbox.conf</code> credits its assembly to a community packager using the handle "cireja," dated February 2026, and specifies the actual settings used to run the game correctly: <code>machine=svga_s3</code>, <code>sbtype=sb16</code>, <code>sbbase=220</code>, <code>irq=7</code>, <code>dma=1</code>, <code>oplmode=auto</code>, <code>oplrate=44100</code>, <code>cycles=2000</code> — this is real, verified configuration data superseding the estimated <code>cycles=fixed 4000</code> suggestion in an earlier revision of this article's [[#Game loop and timing|Game loop and timing]] section. The package's <code>autoexec</code> sequence confirms <code>SBFMDRV.COM</code> is launched before <code>HARE.EXE</code>, exactly as this article's [[#SBFMDRV.COM|SBFMDRV.COM]] section already documented from binary analysis alone.
+
+Recommended request, in order of preference, updated in light of the above:
+# Contact Erbe Software directly (<code>proyectos@erbesoftware.com</code>) referencing both their existing Steam distribution of this exact title and their established Alcachofa Soft/Drascula relationship with ScummVM — this is now a substantially stronger position than reaching for a defunct 1994 studio with no findable modern contact, since a real, active, rights-holding publisher is already distributing this precise game for free.
+# In parallel, the original Drascula precedent remains valid and complementary: in August 2008, '''Emilio de Paz Aragón''' of Alcachofa Soft personally provided ScummVM with the full source code of ''Drascula: The Vampire Strikes Back'' and re-released that game as freeware; he is credited by name on the official [https://www.scummvm.org/credits/ ScummVM Credits page] for doing so.
+# Failing a response from either, treatment under ScummVM's standard policy for engines built via clean-room reverse engineering without vendor source (see [[Engines/ScummVM Engine HowTo]]): this is the path already taken for this analysis, and is why a complete, working reference implementation (see [[#ScummVM implementation|below]]) was produced before any code was proposed for inclusion — per ScummVM's own stated position, reverse-engineering a game without source is accepted, but only as serious, substantial work backed by a developer willing to see it through, not a request made on spec.
+
+Any eventual "community completion" or extension of the game beyond its original scope would constitute a derivative work and should be presented to Erbe Software as a clearly-labeled fan project, not a claimed original release — this is a materially easier conversation to have now that a real publisher contact exists, rather than none at all.
+
+== Technical architecture ==
+
+=== Toolchain identification ===
+
+Both primary executables are conclusively identified as '''Borland Turbo C 2.0''' output via multiple independent signals:
+
+{| class="wikitable"
+! Evidence !! Detail
+|-
+| Borland TDS debug symbols || Magic bytes <code>0xFB 0x52</code>, version <code>0x0208</code>, appended after the MZ image in both <code>HARE.EXE</code> and <code>SCOVA.EXE</code>. Symbol count is sensitive to tokenization method — see note below.
+|-
+| CRT copyright string || Literal string <code>"Turbo-C - Copyright (c) 1988 Borland Intl."</code> present verbatim in both binaries' data segments
+|-
+| CRT symbol <code>__turboCrt</code> || Present only in Borland Turbo C/C++ output; absent from Microsoft C and Watcom builds
+|-
+| Entry-point opcode pattern || <code>BA ?? ?? 2E 89 16 ?? ??</code> (<code>MOV DX,&lt;dseg_size&gt;; CS: MOV [off],DX</code>) — the standard Borland TLINK startup sequence
+|-
+| Relocation density || 87 entries (<code>HARE.EXE</code>) and 101 entries (<code>SCOVA.EXE</code>), consistent with Borland TLINK medium/large-model output using far pointers
+|}
+
+{{Note|'''On symbol counts:''' the exact number of unique TDS symbols reported for this binary has varied across analysis passes (351, then 398 in a secondary source, now 348 here) because naive substring scanning of the raw TDS bytes can slice a token mid-identifier (e.g. extracting <code>_BPsafe</code> out of the middle of an unrelated longer string) and inflate the count. A boundary-safe re-extraction — requiring every candidate token to begin immediately after a non-identifier byte — yields '''348 unique symbols in <code>HARE.EXE</code>''' and '''347 in <code>SCOVA.EXE</code>''', with 328 shared between the two and the remainder split between EMS-only symbols in <code>SCOVA.EXE</code> and a small number of <code>HARE.EXE</code>-only symbols. This is the count used throughout this article.}}
+
+<code>PLAY.EXE</code> and <code>VPLAY.EXE</code> are a separate toolchain entirely: both carry the string <code>"MS Run-Time Library - Copyright (c) 1987, Microsoft Corp"</code> and have zero relocation entries (position-independent code), identifying them as Microsoft C output.
+
+==== Instruction-level confirmation: CRT startup signatures ====
+
+Every piece of toolchain evidence above is either a string (which could in principle be altered without affecting behavior) or a structural header field. The strongest possible confirmation is at the instruction level: manually disassembling each executable's actual entry-point bytes and comparing the two toolchains' startup '''conventions''', not just their self-reported banners. All four bytes sequences below were extracted directly from each file's own MZ-header-computed entry point (<code>header_size + CS×16 + IP</code>) and hand-disassembled.
+
+'''<code>HARE.EXE</code> / <code>SCOVA.EXE</code> entry point (identical pattern in both):'''
+<syntaxhighlight lang="asm">
+BA AA 0B          MOV  DX, 0x0BAA        ; data segment size, in paragraphs
+2E 89 16 BA 01    MOV  CS:[0x01BA], DX   ; store it — the Borland-specific
+                                          ; "save data segment size" idiom
+B4 30             MOV  AH, 0x30          ; DOS function 0x30
+CD 21             INT  0x21              ; = "Get MS-DOS Version Number"
+8B 2E 02 00       MOV  BP, [0x0002]      ; PSP+0x02: top of allocated memory
+8B 1E 2C 00       MOV  BX, [0x002C]      ; PSP+0x2C: environment block segment
+8E DA             MOV  DS, DX
+A3 7D 00          MOV  [0x007D], AX
+8C 06 7B 00       MOV  [0x007B], ES
+89 1E 77 ..       MOV  [0x0077], BX      ; (truncated)
+</syntaxhighlight>
+Querying the DOS version via <code>INT 21h AH=30h</code> as the '''second''' executed operation (immediately after the data-segment-size save), followed by reading the allocated-memory and environment-segment fields directly out of the Program Segment Prefix at fixed offsets 0x02 and 0x2C, is the textbook Borland Turbo C small-model-family CRT startup (the <code>C0*.OBJ</code> family, here specifically <code>C0C.OBJ</code> — see the confirmed Compact-model finding below). This sequence differs from Microsoft C's own startup at essentially every instruction.
+
+'''<code>PLAY.EXE</code> / <code>VPLAY.EXE</code> entry point (identical pattern in both, and different from the above at every instruction):'''
+<syntaxhighlight lang="asm">
+8C C0             MOV  AX, ES
+05 10 00          ADD  AX, 0x0010
+0E                PUSH CS
+1F                POP  DS
+A3 04 00          MOV  [0x0004], AX
+03 06 0C 00       ADD  AX, [0x000C]
+8E C0             MOV  ES, AX
+8B 0E 06 00       MOV  CX, [0x0006]
+8B F9             MOV  DI, CX
+4F                DEC  DI
+8B F7             MOV  SI, DI
+FD                STD                    ; set direction flag — copy will run backward
+F3 A4             REP  MOVSB             ; reverse block copy, CX bytes
+8B 16 0E 00       MOV  DX, [0x000E]
+</syntaxhighlight>
+Computing an adjusted segment (<code>ES = CS + 0x10 + [0x000C]</code>) and then performing a '''reverse''' (<code>STD</code>-then-<code>REP MOVSB</code>) block copy to compact/relocate the program image is the classic Microsoft C small-model <code>.EXE</code> startup convention — categorically different from Borland's DOS-version-check-first pattern above. This confirms, at the level of actual executed machine code rather than an embedded string that could in principle be edited or forged, that <code>PLAY.EXE</code>/<code>VPLAY.EXE</code> were built by a genuinely different compiler and linker than <code>HARE.EXE</code>/<code>SCOVA.EXE</code> — the strongest form of toolchain evidence available short of the original source.
+
+=== Binary structural layout ===
+
+Coarse layout of <code>HARE.EXE</code>, reconstructed from MZ header fields, the confirmed TDS trailer position, and string-cluster locations. The TDS symbol table position below is not an estimate — it is the exact computed boundary between the MZ image and the post-image data, verified to the byte against the header's own page-count fields.
+
+{| class="wikitable"
+! File offset !! Approx. size !! Content
+|-
+| 0x00000 || 512 B || MZ header (32-paragraph header, per the header's own <code>header_para</code> field) plus relocation table
+|-
+| 0x00200 || — || Entry point / CRT0 startup (Borland Turbo C 2.0 initialization stub)
+|-
+| ~0x00500–0x0BE00 || ~46 KB || Code and initialized data: video/audio/mouse init, sprite blitter, input handlers, CRT library code, scene rendering, sound and dialogue handlers (boundaries between these regions were not individually delimited; this range is the code+data body between CRT0 and the string cluster below)
+|-
+| ~0x0BE00–0x0E4A6 || ~9.9 KB || Data segment string cluster: embedded filenames, dialogue text, error messages (see [[#Embedded strings and file references|Embedded strings and file references]])
+|-
+| 0x0E4A6 || 22,645 B || Post-image data: Borland TDS v2.08 symbol table (magic <code>0xFB52</code>) and TDS unit/module name list. '''This offset is exact''': it equals <code>(pages−1)×512 + last_page_bytes</code> computed from the MZ header, and independently equals the file offset at which the <code>0xFB 0x52</code> TDS magic actually occurs — the two derivations agree to the byte.
+|}
+
+=== MZ header summary ===
+
+{| class="wikitable"
+! Field !! HARE.EXE !! SCOVA.EXE !! PLAY.EXE !! VPLAY.EXE
+|-
+| File size || 81,179 B || 77,863 B || 37,739 B || 20,893 B
+|-
+| MZ image size || 58,534 B || 56,134 B || 37,739 B || 20,893 B
+|-
+| Post-image data || 22,645 B (Borland TDS) || 21,729 B (Borland TDS) || 0 B || 0 B
+|-
+| Relocation entries || 87 || 101 || 0 || 0
+|-
+| Entry point (file offset) || 0x000200 || 0x000200 || 0x008E62 || 0x005032
+|-
+| Stack size || 230 B || 230 B || 128 B || 128 B
+|-
+| Linker || Borland TLINK || Borland TLINK || MS LINK || MS LINK
+|}
+
+<code>HARE.EXE</code> and <code>SCOVA.EXE</code> differ in exactly one meaningful way at the entry point: <code>HARE.EXE</code> reserves a 0x0BAA-paragraph data segment where <code>SCOVA.EXE</code> reserves 0x0B0D — a 2,512-byte difference, consistent with <code>SCOVA.EXE</code> moving some string data out of the conventional-memory data segment to make room for its EMS usage (see below).
+
+=== Memory model ===
+
+<code>HARE.EXE</code> runs entirely within 640 KB conventional memory. <code>SCOVA.EXE</code> additionally requires 256 KB of LIM EMS 4.0 expanded memory (confirmed via TDS symbols <code>_ems_alloc</code>, <code>_ems_map</code>, <code>_ems_free</code>, <code>_ems_frame_seg</code>, <code>_ems_version</code>, and the literal error string <code>"Este programa necesita 256 Kb de memoria EMS para funcionar."</code>). The EMS page frame provides four 16 KB physical window slots mapped from a 16-logical-page (256 KB) allocation; typical frame segment values are 0xD000 or 0xE000 depending on the host BIOS.
+
+Key conventional-memory regions relevant to a from-scratch engine implementation:
+
+{| class="wikitable"
+! Region !! Purpose
+|-
+| 0x00000–0x004FF || IVT + BIOS Data Area
+|-
+| 0x00800–~0x1FFFF || DOS kernel, COMMAND.COM, TSRs (SBFMDRV.COM loads here)
+|-
+| CS:0000 onward || <code>HARE.EXE</code> code + data image (58.5 KB)
+|-
+| Far heap (farmalloc pool) || 64000-byte ALG background buffer, 64000-byte back-buffer, preloaded VOC buffers (<code>_dir_voc_s1/s2/s3</code>), <code>ct-voice.drv</code> image
+|-
+| 0xA0000–0xAFFFF || VGA VRAM, Mode 13h active window (destination of the per-frame page flip)
+|-
+| 0xD0000/0xE0000 region || EMS page frame (<code>SCOVA.EXE</code> only)
+|}
+
+=== Rendering pipeline ===
+
+Video is initialized with <code>INT 10h, AH=00h, AL=13h</code> (Mode 13h: 320×200, 256 colors, linear framebuffer at segment <code>A000</code>). The palette DAC is programmed through ports <code>0x3C8</code> (index) and <code>0x3C9</code> (RGB triplet, ×3 writes per index); the DAC accepts only 6-bit values (0–63) per channel, so an 8-bit source palette (as found in the game's PCX assets) must be right-shifted by 2 before being written to hardware — this shift is '''not''' needed when targeting a modern 8-bit <code>Graphics::Surface</code>, only when emulating the literal hardware path.
+
+Per-frame layer composition, reconstructed from the TDS symbol table and cross-referenced against the game's own asset structure:
+
+{| class="wikitable"
+! Layer !! Symbol !! Operation
+|-
+| 0 || <code>_borra_pantalla</code> || Clear 64000-byte back-buffer to palette index 0
+|-
+| 1 || <code>_pon_dibujos</code> || Blit decoded background (64000-byte copy from the far-heap ALG buffer)
+|-
+| 2 || <code>_pon_dibujos_colocao</code> || Blit disc-object sprites (from the missing <code>99.ALG</code> sheet) at ALD-specified coordinates, masked
+|-
+| 3 || <code>_pon_hare</code> || Blit the player-character sprite via <code>_DIBUJA_BLOQUE_CON_MASK</code>
+|-
+| 4 || <code>_pon_dibujos_menu</code> / <code>menu_sin_volcar</code> || Inventory HUD overlay, no page flip yet
+|-
+| 5 || (part of <code>_hablar</code>) || Dialogue box: black rectangle at rows 155–199, centered text via <code>_centra_texto</code>
+|-
+| FLIP || <code>_VUELCA_PANTALLA</code> || <code>REP MOVSW</code>, 32,000 words, back-buffer → <code>A000:0000</code>
+|}
+
+Sprite compositing uses <code>_DIBUJA_BLOQUE_CON_MASK</code>: destination = (destination AND mask) OR (source AND NOT mask), i.e. a standard AND/OR masked blit with a separate 1-bit-per-pixel-equivalent mask plane rather than a single transparent color key.
+
+==== Masked blit — reference implementation ====
+
+The mask plane in this engine is stored at the '''same bit depth as the sprite''' (a full 8-bit-per-pixel companion bitmap, not a packed 1-bit-per-pixel plane) — this follows directly from the confirmed <code>99.ALG</code> sprite-sheet layout, where each sprite row has a corresponding mask row offset +56 pixels below it in the '''same PCX file''' (see [[#99.ALG — shared sprite sheet (now obtained; geometry solved and verified against real pixels)|99.ALG]]), rather than a separate, differently-encoded mask resource. A mask pixel value of <code>0x00</code> means "fully transparent, show the background," any other value means "fully opaque, show the sprite" — there is no partial/alpha blending in a 256-color indexed engine of this era. '''Update:''' now that the real sheet has been obtained, the mask rows do not show a clean uniform black/white transparency pattern — see the open note under [[#99.ALG — shared sprite sheet (now obtained; geometry solved and verified against real pixels)|99.ALG]] for what remains unresolved about exactly how these mask pixels are used.
+
+<syntaxhighlight lang="c">
+// dst:  destination back-buffer, DST_STRIDE bytes per row (320 for the full back-buffer)
+// src:  source sprite pixels, sprite_w x sprite_h, tightly packed (sprite_w bytes/row)
+// mask: source mask pixels, same dimensions and packing as src
+// dx,dy: destination top-left in the back-buffer
+void dibuja_bloque_con_mask(uint8_t *dst, int dst_stride,
+                             const uint8_t *src, const uint8_t *mask,
+                             int sprite_w, int sprite_h,
+                             int dx, int dy) {
+    for (int y = 0; y < sprite_h; y++) {
+        uint8_t *drow = dst + (dy + y) * dst_stride + dx;
+        const uint8_t *srow = src  + y * sprite_w;
+        const uint8_t *mrow = mask + y * sprite_w;
+        for (int x = 0; x < sprite_w; x++) {
+            if (mrow[x] != 0x00)          // opaque: mask byte non-zero
+                drow[x] = srow[x];
+            // mask byte == 0x00: transparent, leave destination pixel untouched
+        }
+    }
+}
+
+// _DIBUJA_BLOQUE_CON_MASK_CUT is the same operation with (dx,dy,sprite_w,sprite_h)
+// pre-clipped against the 320x200 back-buffer bounds before the loop above runs,
+// for sprites that straddle a screen edge (e.g. a hotspot near x=0 or x=319).
+
+// _DIBUJA_BLOQUE_SIN_MASK is the unconditional case (background fill, full-screen
+// PCX blit): drop the "if (mrow[x] != 0)" test and always assign drow[x] = srow[x].
+</syntaxhighlight>
+
+==== Page flip — corrected: _VUELCA_PANTALLA is an 8-parameter partial-blit function ====
+
+{{Note|'''Major correction.''' This article previously described <code>_VUELCA_PANTALLA</code> as a fixed-size, argument-free, unconditional 64,000-byte copy with "no dirty-rectangle tracking of any kind." Direct comparison of the real <code>HARE.EXE</code> Reko decompilation against a secondary source's claim shows this was wrong. The correction and its evidence are given in full below, since the earlier claim was stated with more confidence than the underlying disassembly actually supported.}}
+
+The real Reko-decompiled signature, confirmed against roughly fifty independent call sites in <code>HARE.EXE</code>, is:
+
+<syntaxhighlight lang="c">
+void _VUELCA_PANTALLA(word16 dest_x, word16 dest_y, word16 src_x, word16 src_y,
+                       word16 width, word16 height, selector seg, word16 offset);
+</syntaxhighlight>
+
+'''Eight parameters, not zero.''' Every observed call site has <code>dest_x == src_x</code> and <code>dest_y == src_y</code> — the function is called to copy a rectangle from a position in the named far buffer to the '''same''' position on the physical screen, never to reposition content. Two representative confirmed call shapes:
+
+{| class="wikitable"
+! Call !! Meaning
+|-
+| <code>_VUELCA_PANTALLA(0, 0, 0, 0, 0x140, 200, backbuf_seg, backbuf_off)</code> || Full-screen refresh: (0,0), 320×200 (<code>0x140</code> = 320) — the whole-frame case
+|-
+| <code>_VUELCA_PANTALLA(0x3E, 0x5E, 0x3E, 0x5E, 0x35, 0x28, seg, off)</code> || A small 53×40 region at (62, 94) — this exact position matches the slot-machine's red button (see [[#Cross-verification log|Cross-verification log]] for the source and verification of this coordinate)
+|}
+
+This means the engine '''does''' support partial/rectangular screen updates through this single general-purpose primitive — the earlier "no dirty-rectangle tracking of any kind" claim in this article was incorrect; it is more precise to say that no '''automatic''' dirty-tracking exists (nothing computes which regions changed on its own), but the engine's own code deliberately invokes small-rectangle updates in specific situations, such as redrawing a slot-machine button, rather than paying for a full 64,000-byte transfer for a 53×40-pixel change.
+
+'''Reconciling this with the assembly this article previously presented as <code>_VUELCA_PANTALLA</code>'s own body:''' the fixed, argument-free 32,000-word <code>REP MOVSW</code> sequence shown in an earlier revision of this section is very likely real machine code that exists somewhere in the binary, but it is not literally <code>_VUELCA_PANTALLA</code>'s own machine code — a function taking eight stack arguments necessarily has a prologue that reads those arguments before doing any copying, which that sequence does not have. The more likely reconciliation is that the sequence disassembled previously is an inlined or lower-level primitive reached only for the full-screen special case, while <code>_VUELCA_PANTALLA</code> itself is the general parametrized entry point documented here. The exact internal implementation (how it turns eight parameters into the appropriate <code>REP MOVSW</code>/<code>REP MOVSB</code> sequence for an arbitrary rectangle) has not been traced instruction-by-instruction and is noted as an open item rather than guessed at further.
+
+'''ScummVM implication:''' a straightforward port should implement <code>_VUELCA_PANTALLA</code> as a general <code>copyRectToScreen(buffer, pitch, dest_x, dest_y, width, height)</code> call parametrized by all eight arguments — not hardcoded to always transfer the full 320×200 frame. Since <code>dest</code> and <code>src</code> coordinates are identical in every observed call, no coordinate-translation logic is needed; the width/height/segment/offset arguments alone fully determine the operation.
+
+=== Game loop and timing ===
+
+No PIT (8253/8254) reprogramming was found in the binary (no <code>OUT 43h</code>/<code>OUT 40h</code> sequences), and no dedicated V-Sync polling symbol (port 0x3DA) is present. The frame rate is therefore uncapped and directly CPU-speed-dependent, in line with a great many small 1994-era DOS titles: on original period hardware this would run at roughly 10–30 fps depending on CPU class, and correspondingly faster on emulated or modern-speed hardware unless deliberately throttled. For DOSBox-based testing, a fixed low cycle count (e.g. <code>cycles=fixed 4000</code>) approximates original 8086/8088-class speed.
+
+{{Note|'''On <code>__Int0Vector</code>/<code>__Int4Vector</code>:''' a secondary analysis source raised these two symbols (plus <code>__Int5Vector</code>, <code>__Int6Vector</code>) as evidence of an INT 08h (hardware timer) / INT 1Ch (user timer tick) hook, which would contradict the "uncapped" conclusion above. All four symbols are genuinely present in the TDS table — '''but they are not what that claim describes'''. In Borland Turbo C 2.0's runtime, <code>__IntNVector</code> names its internal table of '''CPU exception''' vectors, numbered by raw interrupt number in decimal: INT 0 (divide error), INT 4 (overflow), INT 5 (bound range exceeded), INT 6 (invalid opcode). This is the same standard CRT exception-handling scaffolding responsible for the <code>"Divide error"</code> / <code>"Abnormal program termination"</code> strings already documented elsewhere in this article — every Borland Turbo C program of this era carries it. It has no connection to the BIOS timer interrupt (INT 08h/decimal 8) or the DOS user timer tick (INT 1Ch/decimal 28); the apparent match is a numbering-base coincidence (decimal "0"/"4" read as if they were the low nibble of hex "08h"/"1Ch"). No hardware- or DOS-timer hook symbol of any kind was found, and the "uncapped, CPU-speed-dependent" conclusion above stands.}}
+
+Input is polled, not interrupt-driven: mouse state via <code>INT 33h, AX=0003h</code> (returns button state in BX, position in CX/DX — note Mode 13h reports CX as double the pixel X coordinate, requiring a divide-by-2), keyboard via <code>_bioskey</code> (an <code>INT 16h</code> wrapper). Dialogue display (<code>_hablar</code>) busy-waits on <code>_espera_pulsar</code>/<code>_espera_soltar</code> for a mouse click, which blocks all other game-loop processing (animation, further input) for the duration — but does '''not''' block Sound Blaster DMA audio playback, which runs asynchronously on the card's own DMA channel independent of CPU activity.
+
+=== Reconstructed control flow (pseudocode) ===
+
+The following pseudocode reconstructs the engine's control flow from the verified symbol table and the observed call/data relationships. It is a '''behavioral reconstruction for readability, not a disassembly transcript''' — variable and function names are the real TDS symbol names, but control structure (loop shape, conditionals) is inferred, not lifted instruction-by-instruction. Where a specific step could not be confirmed, it is marked as such rather than presented as settled.
+
+<syntaxhighlight lang="c">
+// --- One-shot initialization ---
+main() {
+    if (!_inicializa_raton_grafico())      // INT 33h AX=0000h
+        { print("No hay RATON instalado"); exit(); }
+
+    _asigna_modo_video(0x13);              // INT 10h AH=00h AL=13h
+    _asigna_memoria(...);                  // farmalloc: back-buffer, ALG buffer, VOC slots
+    _INICIALIZADRV();                      // load ct-voice.drv into far heap
+    _INICIALIZACMF();                      // connect to SBFMDRV.COM TSR
+    _asigna_rgb(...);                      // program initial 256-color palette
+    _lee_dibujos(...);                     // preload current scene's .ALG background
+    _lee_ficheros_voc(...);                // preload .ALS files to _dir_voc_s1/s2/s3
+    _carga_partida();                      // attempt to load an existing save, if present
+    _num_room = 1;                         // start at scene 1
+}
+
+// --- Per-frame loop ---
+while (!quit) {
+    if (_bioskey(1))                       // INT 16h peek
+        handle_key(_bioskey(0));
+
+    if (_hare_se_mueve)
+        _aumenta_num_frame();              // advance walk-cycle animation
+
+    if (mouse_left_button_down)
+        _comprueba();                      // hotspot hit-test + dispatch
+
+    _pon_dibujos();                        // L1: background blit
+    _pon_dibujos_colocao();                // L2: disc-object sprites
+    _pon_hare();                           // L3: player-character sprite
+    _menu_sin_volcar();                    // L4: HUD, no flip yet
+    _VUELCA_PANTALLA();                    // FLIP: back-buffer -> A000:0000
+}
+
+// --- Hotspot dispatch (_comprueba), reconstructed ---
+if (mouse_left_click) {
+    for (each hotspot in current scene's parsed .ALD) {
+        if (mouse_in_rect(hotspot.bbox)) {
+            if (hotspot.is_door)
+                _al_a_pantalla_k_eva(hotspot.dest_scene, hotspot.dest_door, hotspot.dest_pos);
+            else {
+                _coge_objeto(hotspot.object_id);
+                _hablar(hotspot.dialogue_text, hotspot.als_file);
+            }
+            break;
+        }
+    }
+}
+</syntaxhighlight>
+
+{{Note|'''Save/load I/O sequence — now fully confirmed by direct disassembly, resolving the earlier open question.''' <code>_graba_partida</code> (reko-decomp.txt:3936–3995) opens its target file in mode <code>"wt"</code> (text write) and writes, in order: 4 fixed <code>_fprintf</code> fields (format strings at data offsets 0x06F6, 0x06FA, 0x06FE, 0x0702) &rarr; a 16-iteration loop (<code>while(si &lt; 0x10)</code>) writing the inventory array via the format at 0x0706 &rarr; a 10-iteration loop (<code>while(si &lt; 0x0A)</code>) writing the flags array via the format at 0x070A &rarr; 2 more fixed fields (0x070E, then offset 1810) &rarr; <code>_fclose</code>. <code>_carga_partida</code> performs the exact inverse with <code>_fscanf</code> in mode <code>"rt"</code>. This directly confirms, at the code level rather than only from inspecting output files, that the earlier-debunked <code>_codifica</code>/XOR-0xFF claim for this routine is wrong — the routine is plain-text <code>fprintf</code>/<code>fscanf</code> throughout, exactly matching the plain-text structure already confirmed in the real <code>GAMESAVE</code>/<code>AUXILIO</code>/<code>AUXILIAR</code> files. It also gives the inventory and flag arrays their real, confirmed sizes: '''16 inventory slots, 10 flag slots''' — more precise than this article's earlier "variable length" description. The filename itself is passed in by the caller (<code>_para_grabar</code>, bound to the F1 key per the confirmed main-loop description above) as a pointer to a data-segment string; resolving that exact segment-relative offset to a specific one of <code>"gamesave"</code>/<code>"auxilio"</code> was not completed here and is left as the one remaining open item on this question, rather than guessed at.}}
+
+{{Note|'''Correction — the main-loop CALL/JMP addresses are confirmed.''' A previous revision of this article attempted to verify these addresses by adding the 512-byte header size to each logical address before locating it in the file, found no <code>CALL</code> opcode at any of them, and concluded they could not be confirmed. '''That offset convention was itself wrong.''' Using the correct convention — file offset equals the logical address directly, with no header addition — all seventeen claimed addresses (the eight originally listed, later extended to seventeen by a follow-up source) resolve exactly to the claimed opcode (<code>0x9A</code> far call or <code>0xE8</code> near call), and every near-call's relative displacement independently computes to the exact claimed target address. This is one of the more useful corrections in this article's own history: a secondary source's specific, checkable claim turned out to be right, and this article's initial skepticism was the error. The confirmed jump-table/dispatcher mechanism these calls form is described in detail under [[#Cross-verification log|Cross-verification log]], along with why it does not constitute a general bytecode interpreter despite one source's framing of it that way.}}
+
+=== Character and animation subsystem ===
+
+Consolidating every confirmed symbol touching Paco's on-screen representation into one coherent specification (individual symbols are cross-referenced to their fuller descriptions under [[#HARE.EXE|HARE.EXE]]):
+
+{| class="wikitable"
+! State variable !! Role
+|-
+| <code>_hare_x</code>, <code>_hare_y</code> || Current pixel position, 0–319 / 0–199
+|-
+| <code>_hare_se_mueve</code> || Boolean: currently walking vs. idle. Gates whether <code>_aumenta_num_frame</code> advances the walk cycle at all
+|-
+| <code>_sentido_hare</code> || Facing direction: 0 = left (selects <code>_dir_hare_izq</code> sprite data), 1 = right (selects <code>_dir_hare_dch</code>)
+|-
+| <code>_num_frame</code> || Current walk-cycle frame index
+|-
+| <code>_frame_x</code>, <code>_frame_y</code> || Sprite-sheet pixel offset corresponding to the current <code>_num_frame</code> value — i.e. the lookup from frame index to sheet coordinates is precomputed into these two variables rather than recomputed from a formula each frame
+|-
+| <code>_dir_hare_dch</code>, <code>_dir_hare_izq</code> || Far pointers to the player-character sprite-sheet data, one per facing direction. '''Neither sprite sheet has been located in any known copy of the distribution''' — this is the single largest visual gap for a faithful reimplementation, larger in practical impact than the missing <code>99.ALG</code>, since Paco is on-screen in every scene
+|}
+
+Non-player figures use a parallel, simpler position-only state (no separate walk-cycle machinery was found for them, consistent with NPCs in this engine being static art rather than animated characters):
+
+{| class="wikitable"
+! Variable !! Role
+|-
+| <code>_x_figura1</code>, <code>_y_figura1</code> || Position of the first non-Paco figure — most plausibly Mariano, given Scene 11's single large object hotspot (34,35)–(140,109)
+|-
+| <code>_x_figura2</code>, <code>_y_figura2</code> || Position of a second figure slot
+|-
+| <code>_x_figura3</code> || Position (X only confirmed present) of a third figure slot
+|}
+
+'''Movement model:''' no pathfinding of any kind is implemented — <code>_lleva_al_hare(tx, ty)</code> (see the pseudocode under [[#Reconstructed control flow (pseudocode)|Reconstructed control flow]]) is a direct linear interpolation from the current position toward the click target, unconditionally, with no obstacle avoidance and no concept of a walkable-area mask distinct from the simple "below y≈148 is HUD/dialogue territory" rule already noted under [[#Rendering pipeline|Rendering pipeline]]. A reimplementation that matches the original's feel should '''not''' add pathfinding around obstacles — doing so would be a deviation from, not an improvement matching, the source material's actual behavior. Where a reimplementation legitimately can exceed the original without changing observable behavior: sub-pixel movement interpolation for smoother animation at high frame rates, since the original's per-frame integer stepping was itself a product of the uncapped, CPU-speed-dependent timing already documented, not a deliberate aesthetic choice.
+
+== File formats ==
+
+All formats below were decoded and independently verified — either by successfully rendering/parsing every available sample file, or, where noted, cross-checked directly against the original QuickBASIC editor source that generates them.
+
+=== .ALG — scene backgrounds ===
+
+Standard '''PCX (ZSoft) version 3.0''', 320×200, 8 bits per pixel (256-color, single plane), RLE-compressed, with a trailing VGA palette. No deviation from the public PCX v3.0 specification was found; any existing PCX decoder handles these files without modification.
+
+{| class="wikitable"
+! Field !! Value
+|-
+| Header || 128 bytes, fixed
+|-
+| Manufacturer / version / encoding bytes || 0x0A / 0x05 / 0x01
+|-
+| Bounding box || (0,0)–(319,199) in every sample
+|-
+| Planes || 1 (8-bit paletted, not 4-plane EGA)
+|-
+| RLE rule || byte ≥ 0xC0 → run of (byte AND 0x3F) copies of the next byte; else literal byte
+|-
+| Palette || 768 bytes (256 × RGB, 0–255 range) preceded by marker byte 0x0C, located at (file size − 769)
+|-
+| Decompressed size || exactly 64,000 bytes (320 × 200 × 1)
+|}
+
+==== Reference decoder (complete) ====
+
+The following is sufficient, on its own, to decode every <code>.ALG</code> file in the corpus with zero modification. It has been run end-to-end against all five available background files with byte-exact results (see the compression-ratio table below).
+
+<syntaxhighlight lang="c">
+#define ALG_WIDTH  320
+#define ALG_HEIGHT 200
+#define ALG_HEADER_SIZE 128
+#define ALG_PALETTE_SIZE 768
+
+// buf: full raw file contents. out_pixels: caller-allocated 64000-byte buffer.
+// out_palette: caller-allocated 768-byte buffer.
+void decode_alg(const uint8_t *buf, size_t file_size,
+                 uint8_t *out_pixels, uint8_t *out_palette) {
+
+    // --- Header fields actually needed (all others are fixed/ignored) ---
+    uint16_t xmin = read_le16(buf + 4),  ymin = read_le16(buf + 6);
+    uint16_t xmax = read_le16(buf + 8),  ymax = read_le16(buf + 10);
+    uint16_t bytes_per_line = read_le16(buf + 66);   // may exceed ALG_WIDTH (row padding)
+    int width  = xmax - xmin + 1;                     // == 320 for every known .ALG
+    int height = ymax - ymin + 1;                      // == 200 for every known .ALG
+
+    // --- Palette: last 769 bytes of the file: [0x0C marker][256 x RGB] ---
+    assert(buf[file_size - 769] == 0x0C);
+    memcpy(out_palette, buf + file_size - 768, ALG_PALETTE_SIZE);
+
+    // --- RLE decompress into a scratch buffer sized height*bytes_per_line ---
+    size_t needed = (size_t)height * bytes_per_line;
+    uint8_t *scratch = malloc(needed);
+    size_t src = ALG_HEADER_SIZE, dst = 0;
+    while (dst < needed) {
+        uint8_t b = buf[src++];
+        if ((b & 0xC0) == 0xC0) {              // run-length byte
+            int count = b & 0x3F;              // 1..63 repeats
+            uint8_t value = buf[src++];
+            while (count-- > 0) scratch[dst++] = value;
+        } else {                                // literal byte
+            scratch[dst++] = b;
+        }
+    }
+
+    // --- Strip row padding: keep only the first ALG_WIDTH bytes of each row ---
+    for (int y = 0; y < height; y++)
+        memcpy(out_pixels + y * ALG_WIDTH,
+               scratch + y * bytes_per_line,
+               ALG_WIDTH);
+
+    free(scratch);
+}
+</syntaxhighlight>
+
+The one-line VGA-DAC caveat this decoder deliberately does '''not''' apply: <code>out_palette</code> values are 0–255, suitable for direct use with a modern 8-bit-per-channel <code>Graphics::Surface</code> or SDL palette. Only if driving real (or precisely emulated) VGA hardware through ports 0x3C8/0x3C9 does each channel need an additional <code>>> 2</code> shift to fit the DAC's 6-bit range — see [[#Rendering pipeline|Rendering pipeline]].
+
+==== Per-file measurements ====
+
+Exact compressed sizes, independently measured (the "reduction" column is 1 − compressed/64,000, i.e. how much smaller than the raw 64,000-byte bitmap the RLE stream is):
+
+{| class="wikitable"
+! File !! Compressed size (bytes) !! Size reduction !! Notes
+|-
+| <code>1.ALG</code> || 20,466 || 68.02% || Scene 1 background
+|-
+| <code>2.ALG</code> || 24,498 || 61.72% || Scene 2
+|-
+| <code>3.ALG</code> || 20,556 || 67.88% || Scene 3
+|-
+| <code>10.ALG</code> || 24,857 || 61.16% || Scene 10
+|-
+| <code>11.ALG</code> || 25,347 || 60.40% || Scene 11 — the least compressible of the five, consistent with a busier/more detailed background (matches the STARFM.CMF "final scene" context)
+|}
+
+=== .ALS — dialogue audio ===
+
+'''Creative Labs Voice File format, version 1.10''' (the classic "VOC" format). PCM 8-bit unsigned, mono. Two sample rates are used across the corpus: '''21,739 Hz''' (divisor byte 0xD2 = 210; used by every numbered <code>N.ALS</code> file) and '''10,989 Hz''' (divisor byte 0xA5 = 165; used only by the unnumbered file <code>07</code>, a 16.7-second narration, likely intro/outro material).
+
+{| class="wikitable"
+! Offset !! Size !! Content
+|-
+| 0 || 19 B || <code>"Creative Voice File"</code> (no null terminator)
+|-
+| 19 || 1 B || <code>0x1A</code> (EOF marker)
+|-
+| 20 || 2 B LE || Header size (always 0x001A = 26)
+|-
+| 22 || 2 B LE || Version (<code>0x010A</code> = 1.10)
+|-
+| 24 || 2 B LE || Version checksum (<code>~version + 0x1234</code>)
+|-
+| 26+ || varies || Data blocks: 1-byte type, 3-byte LE length, then payload. Type <code>0x01</code> = PCM audio (payload begins with 1-byte rate divisor + 1-byte codec, then raw samples); type <code>0x00</code> = terminator (no length field)
+|}
+
+Any existing VOC decoder (ScummVM's <code>Audio::makeVOCStream</code> included) handles this format without modification.
+
+==== Reference decoder (complete) ====
+
+<syntaxhighlight lang="c">
+// Returns malloc'd PCM buffer via *out_pcm (caller frees); returns sample count.
+// *out_rate receives the sample rate for this file.
+size_t decode_als(const uint8_t *buf, size_t file_size,
+                   uint8_t **out_pcm, uint32_t *out_rate) {
+
+    assert(memcmp(buf, "Creative Voice File", 19) == 0);
+    uint16_t header_size = read_le16(buf + 20);   // always 26 (0x001A) in this corpus
+
+    size_t pos = header_size;
+    uint8_t *pcm = NULL;
+    size_t pcm_len = 0;
+    uint32_t rate = 0;
+
+    while (pos < file_size) {
+        uint8_t block_type = buf[pos++];
+        if (block_type == 0x00) break;             // terminator, no length field
+
+        uint32_t block_len = buf[pos] | (buf[pos+1] << 8) | (buf[pos+2] << 16);
+        pos += 3;
+
+        if (block_type == 0x01) {                  // PCM sound data
+            uint8_t divisor = buf[pos];
+            uint8_t codec   = buf[pos + 1];         // 0x00 = unsigned 8-bit PCM (only value seen)
+            rate = 1000000UL / (256 - divisor);     // 210 -> 21739 Hz; 165 -> 10989 Hz
+
+            uint32_t sample_count = block_len - 2;
+            pcm = realloc(pcm, pcm_len + sample_count);
+            memcpy(pcm + pcm_len, buf + pos + 2, sample_count);
+            pcm_len += sample_count;
+        }
+        // block types 0x02 (silence), 0x03 (marker), 0x06/0x07 (repeat begin/end),
+        // 0x08 (extended, stereo/higher-rate) are part of the VOC 1.10 spec but were
+        // not observed in any .ALS file in this corpus — type 0x01 is the only
+        // block type actually encountered.
+
+        pos += block_len;
+    }
+
+    *out_pcm = pcm;
+    *out_rate = rate;
+    return pcm_len;
+}
+
+// Unsigned 8-bit -> signed 16-bit, for audio APIs (e.g. ScummVM's mixer,
+// SDL_AudioSpec) that expect signed samples:
+//   s16 = (u8 - 128) << 8
+</syntaxhighlight>
+
+==== Per-file measurements ====
+
+Exact sample rate, sample count, and duration for every VOC file examined, independently recomputed by fully walking each file's block chain (not estimated from file size):
+
+{| class="wikitable"
+! File !! Size (bytes) !! Sample rate !! Samples !! Duration
+|-
+| <code>07</code> (unnumbered) || 183,489 || 10,989 Hz || 183,456 || 16.694 s
+|-
+| <code>1.ALS</code> || 76,496 || 21,739 Hz || 76,463 || 3.517 s
+|-
+| <code>2.ALS</code> || 41,887 || 21,739 Hz || 41,854 || 1.925 s
+|-
+| <code>3.ALS</code> || 77,531 || 21,739 Hz || 77,498 || 3.564 s
+|-
+| <code>10.ALS</code> || 107,579 || 21,739 Hz || 107,546 || 4.947 s
+|-
+| <code>11.ALS</code> || 50,237 || 21,739 Hz || 50,204 || 2.309 s
+|-
+| <code>12.ALS</code> || 38,101 || 21,739 Hz || 38,068 || 1.751 s
+|-
+| <code>13.ALS</code> || 174,483 || 21,739 Hz || 174,450 || 8.024 s — the longest single line in the game (the guard's "you may pass" dialogue)
+|-
+| <code>14.ALS</code> || 83,390 || 21,739 Hz || 83,357 || 3.834 s
+|}
+Total available dialogue/narration audio across all nine files: '''46.56 seconds'''. Files <code>4.ALS</code> through <code>9.ALS</code> are referenced by the dialogue table (see [[#Dialogue database|Dialogue database]]) but are not present in any known copy of the distribution.
+
+=== .CMF — background music (now fully verified against all five real files) ===
+
+{{Note|'''This section supersedes an earlier draft''' that could only describe the public Creative Music Format specification in the abstract, with an explicit caveat that no <code>.CMF</code> sample from this game had been available for inspection. All five referenced/used CMF files — <code>AULD.CMF</code>, <code>STARFM.CMF</code>, <code>JUEGO.CMF</code>, <code>RANGE.CMF</code>, and <code>ALLE.CMF</code> — have since been obtained and are verified below byte-for-byte, from the complete original DOSBox distribution package. The evidentiary caveat is retired; the header specification below is confirmed exact.}}
+
+CMF (Creative Music Format) is a MIDI-like sequence format for driving the OPL2 FM synthesis chip. Every field in the specification table below is confirmed present at the stated offset in all five real files:
+
+{| class="wikitable"
+! Offset !! Size !! Field !! Confirmed value (all 5 files)
+|-
+| 0x00 || 4 B || Magic || <code>"CTMF"</code>, exact, all five files
+|-
+| 0x04 || 2 B LE || Format version || <code>0x0101</code> (v1.1) in all five files
+|-
+| 0x06 || 2 B LE || Instrument-patch block offset || present and internally consistent (block begins immediately after the header)
+|-
+| 0x08 || 2 B LE || Music-sequence (event) block offset || confirmed; sequence data begins cleanly at this offset in all five files
+|-
+| 0x0A || 2 B LE || Ticks per quarter note || present, non-zero, plausible tempo-grid values in all five files
+|-
+| 0x0C || 2 B LE || Ticks per second (playback timebase) || present; used directly below for duration estimates
+|-
+| 0x0E || 2 B LE || Title/composer/remarks tag block offset || non-zero in 4 of 5 files (only <code>AULD.CMF</code> has no tag block); see the tag-content finding below
+|}
+
+==== Per-file measurements ====
+
+{| class="wikitable"
+! File !! Size (bytes) !! Tag block !! Estimated duration !! Channels used !! Scene(s) it plays in
+|-
+| <code>AULD.CMF</code> || (confirmed CTMF v1.1) || none (offset 0) || '''unreliable — see note''' || 0,1,2,3,4,5,11,12,15 || Scenes 1–4 (per <code>.ALD</code> line 2)
+|-
+| <code>STARFM.CMF</code> || (confirmed CTMF v1.1) || present, content inconclusive || ≈1m 26.6s || 0,1,2,3,4,5,11,12,15 || Scenes 8–9 (per <code>.ALD</code> line 2)
+|-
+| <code>JUEGO.CMF</code> || (confirmed CTMF v1.1) || present, content inconclusive || ≈2m 31.5s || 0 only (single-channel) || Slot-machine mini-game (per embedded filename string, see [[#Embedded strings and file references|Embedded strings and file references]])
+|-
+| <code>RANGE.CMF</code> || (confirmed CTMF v1.1) || '''present, decodes cleanly: "LITTLE BROWN JUG"''' || '''unreliable — see note''' || 0–15 (all 16 channels) || Scene 7 (per <code>.ALD</code> line 2)
+|-
+| <code>ALLE.CMF</code> || (confirmed CTMF v1.1) || present, content inconclusive || ≈2m 58.2s || 0–8,11,12,14,15 || Scenes 5–6 (per <code>.ALD</code> line 2)
+|}
+
+{{Note|'''Duration estimates are heuristic, not a full sequencer.''' Duration was estimated by summing all delta-times in the sequence block (standard MIDI-style variable-length quantities) and dividing by the ticks-per-second header field. This produced plausible results (1–3 minutes, appropriate for a looping background track) for <code>STARFM.CMF</code>, <code>JUEGO.CMF</code>, and <code>ALLE.CMF</code>, but produced implausible multi-hour figures for <code>AULD.CMF</code> and <code>RANGE.CMF</code> — including after adding MIDI running-status handling to the walker. This means the simplified event-walker desynchronizes somewhere in those two files' event streams (most likely on an event type it doesn't correctly skip past), not that those two tracks are actually hours long. A correct duration for these two requires a proper stateful CMF/MIDI sequencer, not a further round of heuristic patching — this is noted as an open item rather than papered over with a wrong number.}}
+
+==== Major correction: RANGE.CMF and ALLE.CMF are real, actively-used game music ====
+
+{{Note|'''This retracts a specific conclusion from the previous revision of this article.''' Because <code>RANGE.CMF</code> and <code>ALLE.CMF</code> do not appear as hardcoded filename strings anywhere in <code>HARE.EXE</code> (only <code>"AULD.CMF"</code> and <code>"STARFM.CMF"</code> are hardcoded there), the previous revision concluded they were "unreferenced, orphaned development/test assets — plausibly stock library files." '''This was incorrect.''' Now that the complete scene set (all eleven scenes) has been obtained and every <code>.ALD</code> file's line 2 (music filename) has been read directly, both files are confirmed as the real, actively-loaded background music for specific scenes: Scenes 5 and 6 load <code>ALLE.CMF</code>; Scene 7 loads <code>RANGE.CMF</code>. The error in the earlier analysis was searching only the executable's own hardcoded string table and failing to account for the fact that '''most''' scene music filenames are supplied dynamically, per-scene, from <code>.ALD</code> data rather than being hardcoded in the binary at all — only the two most common tracks (<code>AULD.CMF</code>, used by the four-scene 1–4 cluster, and <code>STARFM.CMF</code>, used by the 8–9 cluster) happened to also appear as literal strings elsewhere in the binary, which is what created the false impression that the other two were unused.}}
+
+Separately and remarkably: <code>RANGE.CMF</code>'s tag block decodes cleanly (unlike the other three tagged files, whose tag regions do not decode as clean text under either a null-terminated or length-prefixed reading — left as an open discrepancy rather than forced) to the literal title '''"LITTLE BROWN JUG"''' — the name of a well-known 19th-century American folk tune. Given the track is confirmed as genuine, actively-loaded Scene 7 music rather than a discarded test file, the most likely explanation is that the composer built (or adapted) Scene 7's chiptune arrangement starting from a stock/library MIDI or CMF arrangement of that public-domain tune and never updated the embedded tag — a common, mundane practice, not evidence of anything unusual about the scene itself.
+
+==== ScummVM path ====
+
+No CMF-specific parser needs to be written from scratch — ScummVM already ships OPL2 emulation (<code>audio/fmopl.h</code>) suitable for consuming the register-level data this format encodes; only a thin CMF sequence-to-register-write translator is needed on top of it (see [[#Reusable ScummVM subsystems|Reusable ScummVM subsystems]]).
+
+=== .ALD — scene layout data ===
+
+The central data-driven format of the engine, and the one requiring the most care to reproduce exactly. Plain ASCII text, CRLF-line-delimited, encrypted at rest with a trivial whole-byte XOR against <code>0xFF</code> (equivalent to a bitwise NOT — the same operation reverses it). The in-game routine responsible, named <code>_codifica</code> in the TDS symbol table, is a two-line loop with no keying material; this is obfuscation against casual hex-editor viewing, not security.
+
+The format was cross-verified against the actual level-editor source (<code>SCOVA.ALC</code>, a QuickBASIC 4.5 program — see [[#Development tools|below]]), specifically its <code>FUNCTION GRABAR</code>, which writes exactly this layout:
+
+<syntaxhighlight lang="text">
+Line 1:  scene ID string                    (e.g. "1", "10", "11")
+Line 2:  music filename                     (e.g. "AULD.CMF", "STARFM.CMF")
+Line 3:  NOP  — count of on-screen objects (hotspots and doors)
+Line 4:  NOD  — count of disc-object sprites (from the 99.ALG sheet)
+
+[Repeat NOP times:]
+  object ID (integer, globally unique)
+  X1, Y1                                    (hotspot top-left, 0–319 / 0–199)
+  X2, Y2                                    (hotspot bottom-right)
+  PUER                                      (0 = interactive object, 1 = door/exit)
+  [only if PUER = 1:]
+    destination scene filename              (e.g. "5.ALD")
+    destination door ID
+    destination entry position              (0 = left, 1 = right, 2 = center)
+
+"99"                                        (literal terminator string)
+
+[Repeat NOD times:]
+  sprite index in 99.ALG (0-based column)
+  sheet X1, Y1
+  sheet X2  (= X1 + 39)
+  sheet Y2  (= Y1 + 39 — SEE BUG NOTE BELOW)
+  scene placement X, Y
+</syntaxhighlight>
+
+{{Note|'''Known source bug, verified against SCOVA.ALC:''' <code>FUNCTION GRABAR</code> computes the disc-object sheet's bottom edge as <code>POY(I) + TAMANIOX(0)</code> — it reuses the '''width''' constant (<code>TAMANIOX = 39</code>) for the '''height''' field instead of the correct height constant (<code>TAMANIOY = 24</code>), which is confirmed elsewhere in the same source via its <code>GET</code> statement bounds. Every disc-object sheet rectangle in every <code>.ALD</code> file therefore encodes a bottom edge 15 pixels too far down. A conforming decoder must ignore the stored Y2 for height purposes and use a fixed sprite height of 24 pixels.}}
+
+Line-ending detail for implementers: QuickBASIC's <code>PRINT #1</code> writes CRLF (<code>0x0D 0x0A</code>); after XOR-0xFF these become <code>0xF2 0xF5</code> on disk. Integer fields are written with a leading and trailing space (e.g. <code>" 42 "</code>) — strip whitespace before parsing.
+
+The five scenes available in early analysis passes (1, 2, 3, 10, 11) originally parsed into an apparently linear chain with two unexplained loose ends: Scene 1's door to an unreachable "Scene 5," and Scene 10's puzzle-blocked door to an unreachable "Scene 9." Both are now explained. The complete original distribution (all eleven scenes) has since been obtained, and every <code>.ALD</code> file has been parsed directly:
+
+{| class="wikitable"
+! Scene !! Music !! Objects !! Notable connectivity
+|-
+| 1 || AULD.CMF || 2 doors || → scene 2 (left entry); → scene 5 (center entry) — '''resolved''': scene 5 is a real, reachable hub room
+|-
+| 2 || AULD.CMF || 2 doors, 1 disc-object || ↔ scenes 1, 3; disc-object sprite #4
+|-
+| 3 || AULD.CMF || 2 doors, 1 disc-object || ↔ scenes 2, 4; disc-object sprite #3
+|-
+| 4 || AULD.CMF || 1 door, 1 disc-object || '''dead-end''' off scene 3 only; disc-object sprite #14
+|-
+| 5 || AULD.CMF (entry) / ALLE.CMF || 2 doors, 1 object || '''junction room''': ↔ scene 1 (right) '''and''' ↔ scene 6 (left) — the two clusters of the game connect here
+|-
+| 6 || ALLE.CMF || 2 doors || ↔ scenes 5, 7
+|-
+| 7 || RANGE.CMF || 3 doors, 5 disc-objects || '''junction room''': ↔ scene 6, '''and''' branches to both scene 8 '''and''' scene 9; disc-object sprites #2, #6, #9, #11, #15 (the richest single scene for disc-objects in the game)
+|-
+| 8 || STARFM.CMF || 1 door, 1 disc-object || '''dead-end''' off scene 7 only; disc-object sprite #5
+|-
+| 9 || STARFM.CMF || 2 doors, 1 disc-object || ↔ scene 7 (center) '''and''' → scene 10 (right); disc-object sprite #13
+|-
+| 10 || AULD.CMF || 2 doors, 1 object || door to scene 9 '''blocked''' until the book-and-guard puzzle is solved (see [[#Puzzle flag state machine|Puzzle flag state machine]]); interactive security switch (object #40); door to scene 11
+|-
+| 11 || STARFM.CMF || 1 door, 1 object || door to scene 10; large NPC hotspot (object #43, "Mariano")
+|}
+
+[[File:Paco1994_CompleteSceneGraph.svg|thumb|center|700px|The complete, verified eleven-scene navigation graph. Scenes 5 and 7 are junction/hub rooms with three or more connections each, not simple chain links — the true topology branches rather than running in a single line.]]
+
+{{Note|'''This corrects the previous, partial-data conclusion in this article''' that the game's scenes formed "an entirely linear and single-branch" sequence. That conclusion was reached honestly from the five scenes available at the time, but the complete eleven-scene picture shows two genuine junction rooms (5 and 7), each connecting three neighbors rather than two. See also the correction to the Puzzle flag state machine section below, and the major <code>RANGE.CMF</code>/<code>ALLE.CMF</code> correction under [[#.CMF — background music (now fully verified against all five real files)|.CMF]] — both scene 5's and scene 7's music assignments were the missing piece that made this topology fully legible.}}
+
+=== Save format — GAMESAVE, AUXILIO, AUXILIAR ===
+
+{{Note|This section documents a save-format investigation still in progress. Everything stated as fact below was checked directly against three sample files; two open questions are flagged explicitly as open rather than resolved. A prior draft of this analysis asserted more than the evidence supported and has been corrected — see the note at the end of this subsection.}}
+
+Three save-format files are known: <code>GAMESAVE</code> (104 bytes), <code>AUXILIO</code> (104 bytes), and <code>AUXILIAR</code> (164 bytes). All three are '''plain ASCII text, CRLF-delimited — not XOR-0xFF encrypted''' (every byte is printable or a CRLF pair; attempting the <code>.ALD</code>-style XOR decode produces high-bit garbage, not text). This is a materially different on-disk convention from <code>.ALD</code> and should not be assumed to share the same encoding.
+
+All three share an identical header shape:
+
+<syntaxhighlight lang="text">
+Line 0:  scene reference filename        (all three samples: "6.ALD")
+Line 1:  integer, diverges per file      (124 / 148 / 214 across the three samples)
+Line 2:  integer, constant = 64 in all three samples
+Line 3+: integer array (flag/inventory-like state), variable length
+</syntaxhighlight>
+
+No terminator sentinel exists in any of the three files — the array simply ends at EOF.
+
+'''Open question 1 — the meaning of the divergent header integer (Line 1) and the constant 64 (Line 2):''' plausible but unconfirmed without disassembly of the actual save routine. A monotonic counter (elapsed ticks or moves) is the most consistent reading of Line 1, given three distinct, non-repeating values across three saves at the same scene; 64 is consistent with a fixed array-size constant.
+
+'''Open question 2 — what "auxilio" means inside HARE.EXE:''' the literal strings <code>auxilio\0 98.alg\0 auxilio\0</code> appear together in the game's data segment, adjacent to the dialogue-string table. Two explanations are equally consistent with the evidence and neither is confirmed:
+# It is spoken/displayed text ("Help!") tied to a distinct <code>98.alg</code> screen, unconnected to the save files of the same name.
+# It is literally the base filename <code>HARE.EXE</code>'s own save routine writes to for a secondary slot.
+
+Grep of both known level-editor sources (<code>CACA.ALC</code> and <code>SCOVA2.ALC</code>) turns up '''zero''' references to the strings <code>"auxilio"</code>, <code>"AUXILIAR"</code>, or <code>"gamesave"</code> anywhere in either tool — so neither editor is the program writing these files under those names; whatever writes them is <code>HARE.EXE</code> itself or an unexamined third tool. This document does not assert a winner between the two hypotheses above; resolving it needs disassembly of the code path around the save routine, which is out of scope for a strings-and-structure pass.
+
+{{Note|Correction: an earlier pass at this analysis, made before the three save files above were available for direct inspection, incorrectly asserted (a) that a specific 104-byte range inside <code>HARE.EXE</code>'s data segment ''was'' an embedded savegame buffer, and (b) that the save format used a distinctive terminator value. Neither survives inspection of the real files: the cited byte range sits arbitrarily inside a run of null padding with no structural marker, and no such terminator appears in any real save file. Both claims are retracted here for the record.}}
+
+{{Note|'''Second re-verification, against a later secondary source repeating the same claim:''' a subsequent analysis document reasserted the 0xC628–0xC68F "save buffer" theory, this time with specific supporting detail — claiming byte 0x62 of that range equals <code>0x0F</code> ("a Mariano-NPC marker") and byte 0x65 equals <code>0x23</code> ("an NPC-satisfied marker"). Direct re-inspection of the real bytes at those exact offsets shows byte 0x62 = <code>0xB1</code> and byte 0x65 = <code>0x5F</code> — '''neither matches the claimed value'''. The values <code>0x0F</code> and <code>0x23</code> do appear elsewhere in that same 104-byte window, just not at the cited offsets, consistent with the claim having been constructed from real bytes in the vicinity without a precise offset-to-byte check. Combined with the structural argument above (the range starts inside null padding with no boundary marker), this claim is considered closed rather than merely open. The repeated trailing pattern <code>B1 5F</code> ×3 at the very end of the window is real and unexplained — most consistent with a fragment of an unrelated lookup/index table (see the object–action table discussion under [[#HARE.EXE|HARE.EXE]]) rather than a save-state checksum.}}
+
+=== 99.ALG — shared sprite sheet (now obtained; geometry solved and verified against real pixels) ===
+
+{{Note|'''This section supersedes two earlier revisions.''' The first draft guessed "2 rows × 8 columns"; a later revision corrected this to a source-cited "7 columns, 2 rows" reconstruction derived purely from reading <code>SCOVA.ALC</code>'s <code>GET</code> statements, with no access to the actual file, and spent uncertain on whether the two rows represented 14 distinct sprites or 2 visual states of the same 7 objects. The file (distributed without its <code>.ALG</code> extension, as bare filename <code>99</code>) has since been obtained from the complete original distribution. Every prediction from the source-code-only reconstruction is now confirmed exactly against the real pixel data, '''and''' the two-states speculation is resolved: it is 14 distinct sprites, not 7 objects × 2 states.}}
+
+'''Column geometry — confirmed exactly against real pixels.''' Sampling the center pixel of all 28 predicted cells (7 columns × 4 rows: 2 sprite rows + 2 mask rows) against a background reference found genuine, distinct artwork in '''100% of cells''' (28/28), with no empty cells and no repeating/desynchronized content:
+
+{| class="wikitable"
+! ELEC (column) !! X1 !! X2 !! Width
+|-
+| 1 || 2 || 41 || 39
+|-
+| 2 || 43 || 82 || 39
+|-
+| 3 || 84 || 123 || 39
+|-
+| 4 || 125 || 164 || 39
+|-
+| 5 || 166 || 205 || 39
+|-
+| 6 || 207 || 246 || 39
+|-
+| 7 || 248 || 287 || 39
+|}
+Confirmed: exactly 7 columns (a hypothetical 8th would run to X=328, past the 320px canvas edge — this was correctly predicted before the file was available and now stands confirmed).
+
+'''Row geometry — confirmed exactly:'''
+
+{| class="wikitable"
+! Row !! Y1 !! Y2 !! Height !! Role
+|-
+| Sprite row 1 || 17 || 41 || 24 || Sprite indices 2–8
+|-
+| Sprite row 2 || 43 || 67 || 24 || Sprite indices 9–15
+|-
+| Mask row 1 || 73 || 97 || 24 || Mask for sprite row 1 (Y offset +56 from 17)
+|-
+| Mask row 2 || 99 || 123 || 24 || Mask for sprite row 2 (Y offset +56 from 43)
+|}
+
+'''The complete sprite-index formula — solved empirically''' by tabulating every <code>(sprite_index, sheet_x1, sheet_y1)</code> triple recorded across all eleven scenes' <code>.ALD</code> disc-object records (11 confirmed data points, once the complete scene set was available) and solving for the column/row/index relationship directly, rather than continuing to guess:
+
+{| class="wikitable"
+! Sprite index !! Row !! Column (ELEC) !! Confirmed from scene
+|-
+| 2 || row 1 || 1 || Scene 7
+|-
+| 3 || row 1 || 2 || Scene 3
+|-
+| 4 || row 1 || 3 || Scene 2
+|-
+| 5 || row 1 || 4 || Scene 8
+|-
+| 6 || row 1 || 5 || Scene 7
+|-
+| 7 || row 1 || 6 || Scene 5
+|-
+| 9 || row 2 || 1 || Scene 7
+|-
+| 11 || row 2 || 2 || Scene 7
+|-
+| 13 || row 2 || 4 || Scene 9
+|-
+| 14 || row 2 || 5 || Scene 4
+|-
+| 15 || row 2 || 6 || Scene 7
+|}
+
+The clean, complete formula: '''row 1 index = column + 1''' (columns 1–7 → indices 2–8); '''row 2 index = column + 8''' (columns 1–7 → indices 9–15). '''Sprite index 1 is never used''' by any disc-object in any of the eleven scenes — plausibly reserved, or corresponding to a sheet position not used as a placeable disc-object (e.g. Paco's own sprite data, stored on the same sheet but referenced by the separate <code>_dir_hare_dch</code>/<code>_dir_hare_izq</code> pointers rather than by <code>NUOD</code> index).
+
+'''Retraction: the "two visual states of 7 objects" hypothesis is wrong.''' The earlier draft speculated that the two rows might represent two states (on/off, open/closed) of the same 7 puzzle objects, since only 2 real sheet coordinates were available to check at the time. With 11 real data points now in hand, rows 1 and 2 are confirmed to encode '''14 independently-addressable sprites''' (indices 2–15, contiguous), used across different scenes for different purposes (food items, a key, a book, tools, a lever/wrench, a basket — see the visual description below) — not two states of a smaller set of 7. The mask-row content also does not show the uniform black/white transparency-key pattern a simple 1-bit mask would produce, which is noted as an open detail rather than forced into the original "transparency mask" framing; treat the mask rows as "a second full-color image per sprite, whose exact compositing role is not yet re-derived from the real pixels," pending closer study.
+
+'''Visual content, now directly observable:''' the fourteen sprites are recognizable everyday objects consistent with the game's inventory-driven puzzles — among them a red book, a bottle with a green-and-red label, a wrapped/strawy bundle, a plank of wood, a gold key, a loaf of bread, a piece of cured meat, a wire/mesh grate, a red glove or mitt, a wrench or pipe fitting, and a woven basket. This is a plain-language description of what is visible in the decoded sheet, not a claim about which specific dialogue line or puzzle step each one corresponds to — that mapping is a natural next step now that the asset exists, but is not asserted here without tracing each sprite index back to its specific disc-object placement and any dialogue triggered on pickup.
+
+[[File:Paco1994_SpriteSheet99_Annotated.svg|thumb|center|700px|The complete <code>99.ALG</code> sprite sheet with the solved column/row/index formula overlaid on the real decoded pixel data. Green boxes: row 1 (indices 2–8). Orange boxes: row 2 (indices 9–15). Blue boxes: the two corresponding mask rows.]]
+
+=== SALCHI1–4.LBM — IFF ILBM background art ===
+
+Standard '''IFF ILBM''' (InterLeaved BitMap), 320×200, 8 bitplanes (256 colors), <code>ByteRun1</code> (PackBits-style) RLE compression, standard row-interleaved-by-plane layout with plane 0 as the least-significant bit. Also present: <code>DPPV</code> and four <code>CRNG</code> (color-cycle range) auxiliary chunks from Deluxe Paint; the <code>CRNG</code> ranges are flagged inactive in every sample and do not affect single-frame decoding. RLE decompression was verified byte-exact against all four files (compressed input fully consumed, exactly 64,000 decompressed bytes produced, zero leftover). The decoded artwork is dense, heavily dithered 1994-era VGA background material — an initial visual impression of "noise" during decoding turned out to be a subjective misreading of legitimate detailed pixel art, not a decode defect, and was corrected after closer inspection.
+
+=== Short VOC effects: S1–S4 ===
+
+Four additional Creative VOC v1.10 files, 0.32–2.37 seconds each — too short to be spoken dialogue lines. Consistent with UI or slot-machine sound effects; not yet matched to a specific trigger.
+
+=== Unresolved: TITULOS2.ANM ===
+
+Begins with the four bytes <code>LPF </code> rather than the standard IFF <code>FORM</code> magic. Not decoded; flagged for a dedicated follow-up pass rather than guessed at here.
+
+== Executables ==
+
+=== HARE.EXE ===
+
+The primary game executable (81,179 bytes). Contains the complete puzzle logic, all dialogue text, and — via its appended Borland TDS debug-symbol section — 348 named public symbols (boundary-safe count; see the methodology note under [[#Toolchain identification|Toolchain identification]]), which is the single most valuable static artifact available: it effectively documents the entire engine's internal function and variable names without requiring blind disassembly. A representative selection:
+
+{| class="wikitable"
+! Symbol !! Role
+|-
+| <code>_setvgapalette256</code> || Writes 256 RGB triplets to the VGA DAC (ports 0x3C8/0x3C9)
+|-
+| <code>_VUELCA_PANTALLA</code> || Page flip: back-buffer → VRAM
+|-
+| <code>_DIBUJA_BLOQUE_CON_MASK</code> || Masked sprite blit
+|-
+| <code>_lee_dibujos</code> / <code>_descomprime_dibujo</code> || PCX load + RLE decompress
+|-
+| <code>_codifica</code> || XOR-0xFF buffer transform (used for <code>.ALD</code> decode)
+|-
+| <code>_hablar</code> / <code>_habla_mariano</code> || Dialogue box display + VOC playback + click-to-continue wait
+|-
+| <code>_al_a_pantalla_k_eva</code> / <code>_sal_de_la_habitacion</code> || Scene transition in/out
+|-
+| <code>_comprueba</code> / <code>_comprueba1</code> / <code>_comprueba2</code> || Hotspot hit-test and puzzle dispatch
+|-
+| <code>_objetos_que_tengo</code> / <code>_flags</code> || Inventory array / puzzle flag array
+|-
+| <code>_ctvd_init</code> / <code>_ctvd_output</code> || Creative Technology Voice Driver API (VOC playback)
+|-
+| <code>_INICIALIZACMF</code> / <code>_ELIGEFICHFM</code> || CMF/OPL2 music subsystem via the SBFMDRV.COM TSR
+|}
+
+A full 120-symbol annotated table with inferred C signatures is maintained as a companion reference (see [[#References and further material|references]]).
+
+==== Extended symbol catalog by subsystem ====
+
+The following tables extend the representative selection above with additional confirmed symbols, organized by subsystem. Every symbol below was individually confirmed present in the boundary-safe TDS extraction described earlier in this article; none is transcribed from a secondary source without that direct check.
+
+'''Video and palette (extended):'''
+{| class="wikitable"
+! Symbol !! Role
+|-
+| <code>_directvideo</code> || Borland CRT flag controlling direct-to-VRAM vs. BIOS-mediated writes
+|-
+| <code>_palJuego</code> || The game's working 256-color palette buffer, distinct from any fade/transition scratch copy
+|-
+| <code>__VideoInt</code> || Borland CRT internal video-interrupt bookkeeping symbol (CRT infrastructure, not a game-specific hook)
+|}
+
+'''Sprite compositing and drawing buffers:'''
+{| class="wikitable"
+! Symbol !! Role
+|-
+| <code>_DIBUJA_BLOQUE_CON_MASK_CUT</code> / <code>_DIBUJA_BLOQUE_SIN_MASK_CUT</code> || Clipped variants of the masked/unmasked blitters, for sprites that straddle the screen edge
+|-
+| <code>_coloca_en_pantalla</code> / <code>_coloca_en_pantalla_sin_volcar</code> || Places an arbitrary far-pointer bitmap on the back-buffer; the <code>_sin_volcar</code> ("without flushing") variant composites without triggering a page flip, consistent with its use inside multi-layer HUD/menu rendering
+|-
+| <code>_dir_dibujo1</code> / <code>_dir_dibujo2</code> || Far pointers to two concurrently-held decoded-graphics buffers (plausibly current-scene background plus one auxiliary — e.g. sprite sheet or transition target)
+|-
+| <code>_dir_carga_dibujos</code> || Far pointer used specifically during the PCX load/decompress path
+|-
+| <code>_handle_dibujos</code> || Open file handle retained across a graphics-loading call
+|-
+| <code>_dir_hare_dch</code> / <code>_dir_hare_izq</code> || Far pointers to the player-character sprite data, split by facing direction (right/left) — the actual sprite-sheet asset these point to has not been located in any known copy of the distribution
+|-
+| <code>_dir_zona_pantalla</code> || Clipping-region pointer or bounds structure used by the "_CUT" blitter variants
+|}
+
+'''Character/figure positioning:'''
+{| class="wikitable"
+! Symbol !! Role
+|-
+| <code>_x_figura1</code> / <code>_y_figura1</code> || Position of the first non-Paco on-screen figure (most likely the Mariano NPC, given scene 11's single large object hotspot)
+|-
+| <code>_x_figura2</code> / <code>_y_figura2</code> || Position of a second figure slot
+|-
+| <code>_x_figura3</code> || Position (X only confirmed) of a third figure slot
+|}
+
+'''Hotspot, navigation, and menu state:'''
+{| class="wikitable"
+! Symbol !! Role
+|-
+| <code>_alapantallakeva</code> / <code>_alapuertakeva</code> || Alternate/legacy names for the room-transition and walk-to-door routines (compare <code>_al_a_pantalla_k_eva</code> in the representative table above — likely the same routine family under a naming variant, or an earlier/later revision of it)
+|-
+| <code>_lleva_objeto</code> / <code>_mueve_objeto</code> || Carry/move an inventory object; likely the concrete implementations behind the higher-level pickup logic
+|-
+| <code>_comprueba_banderas_menu</code> || Validates which inventory items should currently be shown in the HUD, based on flag state
+|-
+| <code>_rompo</code> / <code>_rompo2</code> || Loop/state "break" flags of unconfirmed exact semantics — plausibly early-exit conditions for the hit-test or dialogue loops
+|-
+| <code>_espuerta</code> || Boolean: "is this hotspot a door?" — likely the concrete storage backing the <code>PUER</code> field read from <code>.ALD</code>
+|}
+
+'''Mouse input (extended):'''
+{| class="wikitable"
+! Symbol !! Role
+|-
+| <code>_dir_raton</code> || Far pointer associated with the mouse driver/cursor state
+|-
+| <code>_statusw</code> / <code>_statusb</code> || Word- and byte-sized views of the polled mouse status (INT 33h AX=0003h result)
+|-
+| <code>_boton1</code> / <code>_boton2</code> / <code>_boton3</code> || Generic three-button state tracking (beyond the simple left/right pair used for core interaction)
+|-
+| <code>_boton_dch</code> / <code>_boton_izq</code> || Explicit right-button / left-button state
+|}
+
+'''Dialogue and sound-effect channel:'''
+{| class="wikitable"
+! Symbol !! Role
+|-
+| <code>_canal_p</code> || A dialogue/audio "channel" indicator of unconfirmed exact role — plausibly which of the preloaded VOC slots (<code>_dir_voc_s1/s2/s3</code>) is currently playing
+|-
+| <code>_dir_sfx</code> / <code>_dir_sfxdriver</code> || Far pointers associated with sound-effect data and the driver instance serving it
+|-
+| <code>_MUSICFMDRIVER</code> / <code>_SOUNDFXDRIVER</code> / <code>_sfxdriver</code> || Named driver-instance handles, consistent with the engine keeping separate driver contexts for FM music versus digitized sound effects rather than sharing one context for both
+|-
+| <code>_ctvm_init</code> / <code>_ctvm_terminate</code> / <code>_ctvm_version</code> || Additional Creative Technology Music-manager (CMF/OPL2) lifecycle calls, alongside the previously documented <code>_ctvd_*</code> voice (VOC) API
+|-
+| <code>_sbc_scan_int</code> || Sound Blaster IRQ auto-detection probe — a standard technique of the era for locating the card's configured interrupt line without requiring the user to specify it
+|}
+
+'''Slot-machine mini-game (confirms and extends the puzzle-tree entry already documented under [[#Dialogue database|Dialogue database]]):'''
+{| class="wikitable"
+! Symbol !! Role
+|-
+| <code>_enciende_boton_rojo</code> / <code>_enciende_boton_amarillo</code> / <code>_enciende_boton_verde</code> || Light up the red/yellow/green slot-machine button
+|-
+| <code>_apaga_boton_rojo</code> / <code>_apaga_boton_amarillo</code> / <code>_apaga_boton_verde</code> || Un-light the corresponding button
+|}
+All three colors are confirmed present as a complete, symmetric light/un-light pair set, consistent with the <code>traga.pcx</code>/<code>traga2.pcx</code> assets and <code>juego.cmf</code> music referenced elsewhere in the binary (see [[#Embedded strings and file references|Embedded strings and file references]]).
+
+'''The slot-machine function itself, and a resolved question about <code>_escoba</code>/<code>_carga_escoba</code>:''' direct reading of the real <code>HARE.EXE</code> Reko decompilation locates the slot machine's own dedicated function, <code>_tragaperras(cx, dx, ds)</code>, and settles a specific disagreement that arose while cross-checking a secondary source's claims:
+
+{| class="wikitable"
+! Symbol !! Confirmed role
+|-
+| <code>_tragaperras</code> || The slot-machine mini-game's own function body. It calls the same general-purpose <code>_pon_dibujos</code> (background redraw) and <code>_comprueba</code> (hotspot hit-test) primitives the main game uses — this is expected, not evidence of a separate rendering system, and should not be mistaken for the main game loop merely because both call the same rendering functions.
+|-
+| <code>_escoba</code> || {{Note|'''Self-correction: this article's own earlier verdict here was wrong.''' An initial pass read the function's opening lines (mouse init, then a call into <code>_carga_escoba</code>) and a closing <code>do{...}while(flag != 1)</code> condition, but did not read the loop body itself, and concluded on that basis that a single call site ruled out this being the main loop — a reasoning error, since being called once and then looping internally is exactly how a main loop normally works. Reading the full loop body (reko-decomp.txt:2758–2815) settles it: '''this is the main game loop.''' Each iteration: hides the mouse cursor (<code>_desactiva_raton</code>) &rarr; calls <code>_mueve_objeto</code> (slot-machine reel animation) or <code>_refresca_pantalla</code> depending on a mode flag &rarr; builds the full-screen <code>_VUELCA_PANTALLA(0,0,0,0,320,199,seg,off)</code> call and executes it &rarr; restores the cursor (<code>_activa_raton</code>) &rarr; polls the mouse via <code>INT 33h</code> &rarr; dispatches to <code>_comprueba1</code> (normal mode) or <code>_comprueba2</code> (slot-machine mode) depending on the same flag &rarr; polls the keyboard via <code>_bioskey</code>, checking scancode <code>0x3B</code> (F1) &rarr; <code>_para_grabar</code> (save) and <code>0x3C</code> (F2) &rarr; <code>_para_cargar</code> (load) — '''newly confirmed: F1/F2 are the save/load keyboard shortcuts''', not previously documented. The loop exits when a flag is set to 1 (quit). <code>_carga_escoba</code>'s file-parsing role, called once before the loop begins, stands as previously described.}}
+|-
+| <code>_carga_escoba</code> || Larger and more general than its name suggests: its body uses <code>_fopen</code>/<code>_fscanf</code>/<code>_strcpy</code> against a filename passed in as an argument (a far pointer, e.g. <code>SEQ(ds, 0x04D5)</code> at its one call site inside <code>_escoba</code>), and is called from '''four''' separate locations in the code with (presumably) different filename arguments each time. This reads much more like a generic "open this text file and parse fixed fields from it via <code>fscanf</code>" utility than a function specifically about loading a broom sprite — the original "broom" interpretation (drawn from the TDS symbol table's naming alone) may describe only its '''first''', historical use, not its full role. Exactly which file(s) it is used to parse beyond the one call inside <code>_escoba</code> has not been traced further; this is flagged as an open, promising lead rather than a resolved fact.
+|}
+
+A secondary analysis source claimed, with high confidence, that <code>_escoba</code> is "the verified main game loop," correcting what it described as an error in an earlier version of this article that placed the loop in a symbol called <code>_main</code>. Both halves of that claim are addressed by the evidence above: this article has never referenced any symbol called <code>_main</code> at any point (there is nothing to correct), and the real decompiled <code>_escoba</code> — short, single-call-site, immediately delegating to a file-parsing utility — is not consistent with being the main loop. This is recorded in full in the [[#Cross-verification log|Cross-verification log]].
+
+'''Save/load (extended):'''
+{| class="wikitable"
+! Symbol !! Role
+|-
+| <code>_pantalla_disco</code> || Displays a disk-activity screen or prompt around save/load operations
+|}
+
+==== Symbols claimed by a secondary source: partial retraction ====
+
+{{Note|'''This article previously stated, incorrectly, that the entire <code>emws_*</code> symbol set was absent from both binaries. That claim is retracted below with the full reasoning, rather than silently corrected — the error is instructive and is documented for that reason.}}
+
+For completeness, the following symbol names were explicitly searched for in the boundary-safe extraction of both <code>HARE.EXE</code> and <code>SCOVA.EXE</code> and remain '''genuinely not found in either''': <code>_video</code>, <code>_DRV</code>, <code>_VOICE_DRV</code>, <code>_CTVDSK_DRV</code>, <code>_READ_DSP_TIME</code>, <code>_WRITE_DSP_TIME</code>, <code>_READ_DSP</code>, <code>_WRITE_DSP</code>, <code>_codificar</code>, <code>_juego</code>.
+
+'''The <code>emws_*</code> set and <code>emuTop@</code>, by contrast, are genuinely present in both binaries — the earlier claim that they were absent was wrong, and the error is fully diagnosed below rather than merely reversed.''' The boundary-safe symbol scanner used throughout this article only begins collecting a candidate token when it encounters a literal underscore byte immediately following a non-identifier byte — a design that correctly isolates Borland's leading-underscore public-symbol convention (<code>_hare_x</code>, <code>_flags</code>, and the like), but silently skips any string that does '''not''' begin with an underscore, even if an underscore appears later in the same token. <code>emws_version</code> begins with the letter <code>e</code>, not an underscore; the scanner's boundary check at the embedded underscore (preceded by the identifier character <code>s</code> from "emws") correctly refuses to treat that position as a new token start, precisely per its own logic — the tool did exactly what it was written to do, and what it was written to do had an undocumented blind spot for exactly this shape of string. Direct string search (unconstrained by the token-boundary assumption) finds the complete set, unambiguously, in both files:
+
+{| class="wikitable"
+! File !! Offset !! Complete cluster found (in order, contiguous)
+|-
+| <code>HARE.EXE</code> || 0x13662–0x13712 || <code>emws_limitSP</code>, <code>emws_initialSP</code>, <code>emws_saveVector</code>, <code>emws_nmiVector</code>, <code>emws_status</code>, <code>emws_control</code>, <code>emws_TOS</code>, <code>emws_adjust</code>, <code>emws_fixSeg</code>, <code>emws_BPsafe</code>, <code>emws_stamp</code>, <code>emws_version</code>, <code>emuTop@</code>, <code>C0C</code>, <code>C0C</code>, <code>HARE.C</code>, <code>HARE</code>
+|-
+| <code>SCOVA.EXE</code> || 0x1290d–0x129be || byte-identical cluster, immediately followed by <code>C0C</code>, <code>C0C</code>, <code>SCOVA.C</code>, <code>SCOVA</code>
+|}
+
+'''This comparison is itself the correction's strongest evidence.''' The cluster is byte-for-byte identical in both executables, positioned identically relative to each binary's own base module name — despite <code>SCOVA.EXE</code> using LIM EMS 4.0 (confirmed via its exclusive <code>_ems_*</code> function set, unaffected by any of this) and <code>HARE.EXE</code> using no EMS calls whatsoever. A symbol cluster tied to the game's own EMS usage would be expected to '''differ''' between an EMS-using and a non-EMS-using build; an identical cluster in both is the signature of a generic, statically-linked runtime-library component, present because it was linked in regardless of whether the game calls it. The naming — a saved/initial stack pointer pair, a saved interrupt vector pair (ordinary and NMI), a status/control word pair, a "TOS" (top-of-stack), a segment-fixup field, a stack-frame safety flag, and a version stamp — reads far more coherently as '''Borland's 8087 floating-point emulator library''' performing emulated-FPU context save/restore across interrupts, a standard component of the Turbo C 2.0 runtime for systems without a hardware coprocessor, than as anything related to LIM EMS memory management. The "ems" in <code>emws</code> most likely abbreviates "emulator" in this context, not "Expanded Memory Specification" — a coincidental prefix collision that led both this article's earlier draft and at least one secondary source to the same wrong association.
+
+The immediately adjacent <code>C0C</code> entries (appearing twice in each binary, right before the base module name) additionally confirm the exact Borland startup module used: '''<code>C0C.OBJ</code>, the Compact memory model''' startup file (small code, far/large data) — superseding this article's earlier, more hedged "medium/large model" language with a direct, source-confirmed answer.
+
+==== Unresolved: the 7×16 byte table at 0xC630 ====
+
+Immediately following the string cluster documented under [[#Embedded strings and file references|Embedded strings and file references]] sits a compact 7-row × 16-column byte table, with most cells holding <code>0xFF</code> and a scattering of small non-<code>0xFF</code> values (observed range 0–35 decimal). Two competing readings were considered:
+
+* '''A dialogue/action index table''', keyed by some combination of room and object/interaction slot, with <code>0xFF</code> meaning "no action here."
+* '''An unrelated palette or coordinate fragment''', given the isolated <code>B1 5F</code> ×3 repeat at its tail (see the save-format re-verification note above).
+
+Neither reading has been confirmed. This table is '''not''' the save-format buffer that a secondary source associated with it (see the correction notes under [[#Save format — GAMESAVE, AUXILIO, AUXILIAR|Save format]]); its actual purpose remains open and would require disassembly of the code that indexes into it to resolve.
+
+==== Original source module structure (confirmed from the TDS unit list) ====
+
+Beyond the public symbol table, the TDS trailer also carries a '''unit/module list''' — the names of every source file (C and assembly) and every linked library module that contributed to the build. Extracting this list directly confirms the exact original source organization:
+
+{| class="wikitable"
+! Module !! Type !! Role
+|-
+| <code>HARE.C</code> || C source || Main game logic — the literal original filename, embedded in the binary's own debug info
+|-
+| <code>SONIDO</code> || C source || Sound module (Spanish: "sound") — a separate compilation unit from the main file
+|-
+| <code>MUSICA</code> || C source || Music module (Spanish: "music") — likewise separate
+|-
+| <code>SBCRWIO.ASM</code> || Assembly || Sound Blaster card read/write I/O
+|-
+| <code>VECTOR.ASM</code> || Assembly || Interrupt vector handling
+|-
+| <code>SCANINT.ASM</code> || Assembly || Almost certainly the keyboard-scancode dispatch routine independently confirmed by direct disassembly under [[#Cross-verification log|Cross-verification log]] (the 3-entry jump table at file offset 0x8C50) — this module list gives that confirmed mechanism its real source-file name
+|-
+| <code>VOCDATA.ASM</code> || Assembly || VOC (voice) data tables
+|-
+| <code>SBCDATA.ASM</code> || Assembly || Sound Blaster card data tables
+|-
+| <code>CTVDASM.ASM</code>, <code>CTVMEM.ASM</code>, <code>CTVDSK.ASM</code>, <code>CTVMASM.ASM</code> || Assembly || Creative Technology Voice Driver (CTVD) and Music (CTVM) low-level assembly interface — directly corresponding to the <code>_ctvd_*</code>/<code>_ctvm_*</code> API symbols already documented above
+|}
+
+The same unit list also confirms the exact compile-time include path <code>C:\TC\INCLUDE\SVGA256.H</code> — revealing that the original developers used a '''custom, non-stock VGA Mode 13h header''' (Turbo C 2.0 does not ship a file by this name), installed under the classic default <code>C:\TC</code> Turbo C installation directory. Everything else in the unit list (<code>FOPEN</code>, <code>STRCMP</code>, <code>LSEEK</code>, <code>ATEXIT</code>, and roughly forty more like them) are standard Borland Turbo C 2.0 CRT library module names, statically linked in — not part of the game's own source. The game's own original source, in its entirety, is therefore three C files and nine assembly files: a genuinely small, tightly-scoped codebase for what it accomplishes.
+
+=== SCOVA.EXE ===
+
+A compiled, EMS-dependent variant (77,863 bytes) sharing the same compiler lineage and 328 TDS symbols in common with <code>HARE.EXE</code> out of 347 total (boundary-safe count). Requires 256 KB LIM EMS 4.0. Not required to play the game; appears to be a development/testing build rather than the shipped executable.
+
+Nineteen symbols are confirmed present '''only''' in <code>SCOVA.EXE</code>, all EMS-related, consistent with the LIM EMS 4.0 API already documented under [[#Memory model|Memory model]]:
+
+{| class="wikitable"
+! Symbol !! Role
+|-
+| <code>_ems_inst</code> / <code>_ems_version</code> || EMS driver presence check and version query (INT 67h AH=46h)
+|-
+| <code>_ems_alloc</code> / <code>_ems_free</code> || Allocate/free logical EMS pages (INT 67h AH=43h/45h)
+|-
+| <code>_ems_map</code> || Map a logical page into one of the four physical window slots (INT 67h AH=44h)
+|-
+| <code>_ems_frame_seg</code> || Query the page-frame segment address (INT 67h AH=41h)
+|-
+| <code>_ems_save_map</code> / <code>_ems_restore_map</code> || Preserve/restore the current page mapping context
+|-
+| <code>_ems_free_page</code> / <code>_ems_num_page</code> || Page-count bookkeeping
+|-
+| <code>_emm_ec</code> || Last EMM error code
+|-
+| <code>_falta_ems</code> || Fatal-error handler for "not enough EMS" conditions
+|-
+| <code>_handle</code> / <code>_handle2</code> || EMS handle storage (a second handle suggests two independent allocations, not a single 256 KB block)
+|-
+| <code>_intdos</code> || Generic <code>INT 21h</code> wrapper, listed here as it appears among the EMS-cluster symbols in the binary's layout though it is not EMS-specific itself
+|}
+
+=== SBFMDRV.COM ===
+
+A 6,183-byte DOS TSR: '''Creative Sound Blaster FM-Driver, version 1.11''' (Creative Labs / Creative Technology, 1990), identification string <code>"FMDRV"</code> at offset 3. Drives the Yamaha OPL2 chip for CMF music playback, default I/O base 0x220, command-line switches <code>/P:</code> (port), <code>/I:</code> (IRQ), <code>/U</code> (uninstall). Must be resident before <code>HARE.EXE</code> is launched; for a ScummVM implementation this TSR is not needed at all, since ScummVM has its own software OPL2 emulation (<code>audio/fmopl.h</code>) that can consume CMF register data directly.
+
+Byte-exact structure, independently confirmed:
+
+{| class="wikitable"
+! Offset !! Bytes !! Meaning
+|-
+| 0x0000 || <code>E9 D7 15</code> || <code>JMP near</code>, relative displacement 0x15D7, resolving to entry point '''0x15DA''' (confirmed: 3 + 0x15D7 = 0x15DA exactly)
+|-
+| 0x0003 || <code>"FMDRV"</code> + NUL || TSR identification string, used by the driver's own residency check to detect an already-installed copy
+|-
+| 0x11B8 || <code>"Creative Sound Blaster FM-Driver  Version 1.11\r\n"</code> || Version banner (confirmed at this exact offset)
+|-
+| 0x11E8 || <code>"Copyright (c) Creative Labs, Inc., 1990"</code> || Copyright banner, immediately following the version string (confirmed at this exact offset)
+|}
+
+=== PLAY.EXE / VPLAY.EXE ===
+
+Separate Microsoft-C-toolchain utilities, unrelated to the Borland-built game logic. <code>PLAY.EXE</code> (37,739 bytes) is an IFF ANIM sequence player, likely used for cutscenes. <code>VPLAY.EXE</code> (20,893 bytes) is Creative Technology's standalone VOC player, version 1.50 — useful as an independent way to confirm <code>.ALS</code> audio content during testing.
+
+== Embedded strings and file references ==
+
+<code>HARE.EXE</code>'s data segment carries every filename the engine ever opens, hardcoded as literal C strings, plus the full error-message catalog. Every entry below was located by direct byte search and is given with its exact file offset.
+
+=== Referenced asset filenames ===
+
+{| class="wikitable"
+! Filename !! Offset !! Notes
+|-
+| <code>1.ald</code> || 0xC175 || Representative of the numbered <code>N.ALD</code> scene-data pattern (see [[#.ALD — scene layout data|.ALD]])
+|-
+| <code>10.alg</code> || 0xC17B || Representative of the numbered <code>N.ALG</code> background pattern
+|-
+| <code>1.als</code> through <code>14.als</code> || 0xC1A6–0xC5C5 || The full numbered dialogue-audio set (see [[#Dialogue database|Dialogue database]] for the per-line mapping)
+|-
+| <code>97.alg</code> || 0xBE6F || Referenced background, asset not present in any known copy of the distribution
+|-
+| <code>98.alg</code> || 0xBE68 || Referenced background; see the "auxilio" discussion under [[#Save format — GAMESAVE, AUXILIO, AUXILIAR|Save format]]
+|-
+| <code>99.als</code> || 0xC416 || '''Distinct from the sprite sheet <code>99.ALG</code>''' — this is an audio file, most plausibly a save-confirmation sound effect, given its proximity to the <code>"gamesave"</code> string
+|-
+| <code>auxilio</code> || 0xC60E || See the open-question discussion under [[#Save format — GAMESAVE, AUXILIO, AUXILIAR|Save format]]
+|-
+| <code>ct-voice.drv</code> || 0xBDB6 || Creative Technology voice driver, loaded into the far heap by <code>_INICIALIZADRV</code>. This file itself has not been located for independent byte-level analysis; any claims about its internal structure elsewhere should be treated as unverified until it is
+|-
+| <code>gamesave</code> || 0xC3EB || Primary save filename (see [[#Save format — GAMESAVE, AUXILIO, AUXILIAR|Save format]])
+|-
+| <code>juego.cmf</code> || 0xC0E7 || Slot-machine mini-game music
+|-
+| <code>traga.pcx</code> || 0xC0FA || Slot-machine graphics, first frame/state
+|-
+| <code>traga2.pcx</code> || 0xC104 || Slot-machine graphics, second frame/state
+|}
+
+=== Error and status messages ===
+
+{| class="wikitable"
+! Message (Spanish original) !! Offset !! English
+|-
+| <code>No hay RATON instalado</code> || (see [[#Toolchain identification|earlier]]) || No mouse driver installed
+|-
+| <code>No hay suficiente memoria. Libere programas residentes.</code> || (see earlier) || Not enough memory. Please unload resident programs.
+|-
+| <code>No se puede abrir el archivo %s .</code> || (see earlier) || Cannot open file: %s
+|-
+| <code>Error en proceso de lectura de datos!!!</code> || 0xC05C || Error in data-reading process!!!
+|-
+| <code>Error leyendo el archivo sonido</code> || 0xC0AB || Error reading the sound file
+|-
+| <code>Error leyendo archivo fm</code> || 0xC0CB || Error reading FM file
+|-
+| <code>no puedo abrir el archivo</code> || 0xC111 || Cannot open the file
+|-
+| <code>no puedo abrir archivo de voz</code> || 0xC339 || Cannot open voice file
+|-
+| <code>no puedo abrir el archivo origen</code> || 0xC43A || Cannot open source file
+|-
+| <code>no puedo abrir el archivo destino</code> || 0xC45E || Cannot open destination file
+|}
+
+The last two entries (source/destination file open failures) are consistent with a copy-style routine somewhere in the engine — plausibly part of the save/backup path discussed under [[#Save format — GAMESAVE, AUXILIO, AUXILIAR|Save format]], though this is inference rather than a confirmed call-site link.
+
+=== Compiler-generated strings (not game text — do not translate) ===
+
+For anyone using this article's dialogue and error catalogs as a localization source (see [[#Dialogue database|Dialogue database]]): the three strings below are emitted by the '''Borland Turbo C runtime itself''', not by the game's own code, and appear in effectively every program built with this toolchain. They should never be included in a translation pass — a translated build should keep these in their original English/compiler form, exactly as the genuine 1994 binary does, or replace them with ScummVM's own equivalent runtime error handling rather than translating them as if they were game dialogue.
+
+{| class="wikitable"
+! String !! Offset !! Origin
+|-
+| <code>Turbo-C - Copyright (c) 1988 Borland Intl.</code> || 0xBCA4 || Borland Turbo C 2.0 CRT identification banner
+|-
+| <code>Divide error</code> || 0xBCCF || Borland CRT's handler for CPU exception vector 0 (see the <code>__Int0Vector</code> discussion under [[#Game loop and timing|Game loop and timing]])
+|-
+| <code>Abnormal program termination</code> || 0xBCDD || Borland CRT's generic fatal-exit message
+|}
+
+<code>PLAY.EXE</code> and <code>VPLAY.EXE</code> carry the corresponding Microsoft-toolchain equivalent, confirmed at offset 0x84A4 in <code>PLAY.EXE</code>: <code>"MS Run-Time Library - Copyright (c) 1987, Microsoft Corp"</code> — again, compiler boilerplate, not game text.
+
+== Development tools ==
+
+Two distinct QuickBASIC 4.5 tools were used during the game's development, confirmed to be genuinely separate programs (not versions of one another) by direct comparison:
+
+{| class="wikitable"
+! Tool !! Size !! Routines !! Role
+|-
+| <code>SCOVA.ALC</code> (+ near-identical revision <code>SCOVA2.ALC</code>) || 391 / 367 lines || 9 <code>SUB</code>/<code>FUNCTION</code> blocks || Scene-layout editor; its <code>FUNCTION GRABAR</code> is the authoritative source for the <code>.ALD</code> format (see above). Displays a developer in-joke at startup referencing "Pendulo Estudios" (Péndulo Studios, a contemporary Spanish adventure-game house).
+|-
+| <code>CACA.ALC</code> || 1,001 lines || 31 <code>SUB</code>/<code>FUNCTION</code> blocks || A substantially larger, structurally distinct level-editing tool. Writes <code>FLAGS.DAT</code>, <code>MAPA.DAT</code>, <code>OBJETOS.DAT</code>, <code>PANT.DAT</code>, <code>VERBOS.DAT</code>, and <code>SALIDAS.DAT</code> — none of which correspond to the <code>GAMESAVE</code>/<code>AUXILIO</code>/<code>AUXILIAR</code> save-file naming (see save-format section above; this rules out <code>CACA.ALC</code> as the tool responsible for those files).
+|}
+
+Neither tool's source contains the literal strings <code>"auxilio"</code> or <code>"gamesave"</code>, which is the direct evidence behind the "open question" framing in the save-format section above.
+
+=== CACA.ALC — complete routine index ===
+
+All 31 top-level <code>SUB</code>/<code>FUNCTION</code> blocks, confirmed by direct extraction from the source file, grouped by apparent role:
+
+{| class="wikitable"
+! Group !! Routines
+|-
+| Top-level menu handlers (one per data domain) || <code>SUB BANDERAS</code>, <code>SUB MAPA</code>, <code>SUB OBJETOS</code>, <code>SUB PANTALLA</code>, <code>SUB VERBOS</code>, <code>SUB SALIR</code>
+|-
+| Load routines (one per <code>.DAT</code> file) || <code>FUNCTION CARGABAND</code>, <code>FUNCTION CARGAMAP</code>, <code>FUNCTION CARGAOBJ</code>, <code>FUNCTION CARGAPANT</code>, <code>FUNCTION CARGVERBOS</code>
+|-
+| Save routines (one per <code>.DAT</code> file) || <code>FUNCTION GRABANDER(NB, PIS)</code>, <code>FUNCTION GRABAOBJ(N, NO)</code>, <code>FUNCTION GRABAPANT(P, DESC$, TTEX)</code>, <code>FUNCTION GRABMAP(Y, X, P)</code>, <code>FUNCTION GRABSALID(P)</code>, <code>FUNCTION GRABVER(V, F)</code>
+|-
+| Display/formatting helpers || <code>FUNCTION IMPRBAND$(NB)</code>, <code>FUNCTION IMPROBJ$(NO)</code>, <code>FUNCTION IMPRVER$(V, N)</code>, <code>FUNCTION PANT$(X$, Y, X, A, P)</code>, <code>FUNCTION PRINMAP(P)</code>
+|-
+| Editing/navigation utilities || <code>FUNCTION EDITAR(V)</code>, <code>FUNCTION ELIGEFILA</code>, <code>FUNCTION LISTA(V, LSI, AC)</code>, <code>FUNCTION NUEVO(V)</code>, <code>FUNCTION BORRAVER(V)</code>, <code>FUNCTION SINON(V)</code>, <code>FUNCTION SEPARA(OP$, V, N)</code>
+|-
+| Hardware/input primitives || <code>FUNCTION RATON</code>, <code>FUNCTION TECLA</code>
+|-
+| Exit path || <code>FUNCTION SALIDAS</code>
+|}
+
+This confirms <code>CACA.ALC</code> as a complete, self-contained CRUD editor for the five game data domains (flags, map/connectivity, objects, screens/backgrounds, verbs) plus a hardware-abstraction layer of its own (mouse and keyboard primitives distinct from the main game's own input handling) — a materially larger scope than <code>SCOVA.ALC</code>'s single-purpose <code>.ALD</code> scene editor.
+
+{{Note|'''On an unsupported authorship attribution:''' a secondary analysis source attributed this codebase to a named individual, "Santiago Lancha," reasoning from the presence of hardcoded Spanish-language punctuation and phrasing. That reasoning does not support the conclusion it draws — Spanish punctuation is evidence of a Spanish-speaking developer or target audience, not of any specific person's identity — and the name does not appear anywhere in <code>HARE.EXE</code>, <code>SCOVA.EXE</code>, <code>SCOVA.ALC</code>, <code>SCOVA2.ALC</code>, <code>CACA.ALC</code>, or <code>SBFMDRV.COM</code> (checked directly, byte-for-byte, in all six files). This attribution is not repeated as fact anywhere else in this article and should not be treated as established.}}
+
+{{Note|'''Internal inconsistency in a secondary source:''' the same analysis document states, in one section, that 218 Borland CRT functions are embedded in <code>HARE.EXE</code>, and in its own summary/conclusion section, that the figure is 77. The two numbers are not reconciled anywhere in that document. Given this internal contradiction, neither figure is repeated here as fact; readers wanting a CRT function count should rely on the boundary-safe total symbol count (348, see [[#Toolchain identification|Toolchain identification]]), which does not attempt to separate "CRT-library" symbols from "game-specific" ones.}}
+
+== Dialogue database ==
+
+All narrative text is hardcoded as C string literals in <code>HARE.EXE</code>'s data segment (offsets approximately 0xC182–0xC624), each paired with an adjacent VOC filename reference. Nineteen primary entries were extracted and translated:
+
+{| class="wikitable"
+! ID !! .ALS !! Duration !! Spanish (original) !! English
+|-
+| DLG001 || 9.ALS || (asset missing) || Lo siento, no te puedo dejar pasar. || Sorry, I can't let you through.
+|-
+| DLG002 || 3.ALS || 3.56 s || Esta atascada. Necesitare algo para abrirla. || It's stuck. I'll need something to open it.
+|-
+| DLG003 || 8.ALS || (asset missing) || Es una puerta de seguiridad. Debe haber un interruptor en algun sitio. || It's a security door. There must be a switch somewhere around here.
+|-
+| DLG004 || 1.ALS || 3.52 s || Es una maquina expendedora de salchichas de humano. || It's a human sausage vending machine.
+|-
+| DLG005 || (none) || — || ¡Al loro! || Heads up!
+|-
+| DLG006 || 7.ALS || (asset missing) || ¡Una maquina tragaperras! || A slot machine!
+|-
+| DLG007 || (none) || — || ¿Que te pasa amigo mio, que te veo desolado? || What's the matter, my friend? You look so down.
+|-
+| DLG008 || 5.ALS || (asset missing) || estoy triste porque mi vida no tiene sentido, y porque tengo hambre || I'm sad because my life has no meaning. And because I'm hungry.
+|-
+| DLG009 || 10.ALS || 4.95 s || (blank — audio-only ambient pause) || —
+|-
+| DLG010 || 2.ALS || 1.93 s || Tu ten karma, y leete este libro. || You keep the karma, and read this book.
+|-
+| DLG011 || 2.ALS || 1.93 s || ¡OH! En este libro aparecen nuevas teorias sobre donde esta la paz en el mundo! || Oh! This book contains new theories about where world peace can be found!
+|-
+| DLG012 || (none) || — || ¡muchas gracias! || Thank you very much!
+|-
+| DLG013 || 13.ALS || 8.02 s || Has demostrado ser un gran amigo. Puedes pasar si quieres. || You've proven yourself to be a great friend. You may pass if you like.
+|-
+| DLG014 || 14.ALS || 3.83 s || Toma machote. || Here you go, pal.
+|-
+| DLG015 || 6.ALS || (asset missing) || No gracias. No me gusta el chopped. || No thanks, I don't like processed meat.
+|-
+| DLG016 || 11.ALS || 2.31 s || Toma machote. || Here you go, pal.
+|-
+| DLG017 || 6.ALS || (asset missing) || Gracias. Enseguida me lo como. || Thanks, I'll eat it right away.
+|-
+| DLG018 || 12.ALS || 1.75 s || Has demostrado ser un gran amigo. Puedes pasar si quieres. || You've proven yourself to be a great friend. You may pass if you like.
+|-
+| DLG019 || 14.ALS || 3.83 s || Toma machote. || Here you go, pal.
+|}
+
+A full six-language localization table (Spanish, English, French, German, Italian, Brazilian Portuguese) with trigger conditions, flag effects, and hex offsets is maintained as a companion spreadsheet for translators (see references).
+
+== Puzzle flag state machine ==
+
+The complete, currently-known puzzle graph, expressed as preconditions and effects on the flag set documented under [[#Save format — GAMESAVE, AUXILIO, AUXILIAR|Save format]]. This is the single most directly useful section of this article for reimplementing correct game '''logic''' (as opposed to correct file I/O) — a straightforward <code>switch</code>/<code>if</code> chain over these rows reproduces the entire known puzzle sequence.
+
+{| class="wikitable"
+! Step !! Precondition !! Trigger !! Effect
+|-
+| P01 || <code>door_open</code> == false || Click Scene 10 door object (→ Scene 9) || Fires DLG001 ("Sorry, I can't let you through."); no state change; navigation blocked
+|-
+| P02 || <code>switch_used</code> == false || Click Scene 10's interactive object (security switch) || Fires DLG003 ("It's a security door..."); sets <code>switch_used</code> = true
+|-
+| P03 || doors along Scenes 1→2→3→…→10→11 all otherwise passable || Walk the chain || Reach Scene 11 and encounter the large NPC hotspot ("Mariano")
+|-
+| P04 || <code>met_mariano</code> == false || Click the Scene 11 NPC hotspot, first time || Fires DLG007 + DLG008 (greeting, then "I'm sad... and hungry"); sets <code>met_mariano</code> = true
+|-
+| P05 || <code>got_food</code> == false || Click the disc-object sprite in Scene 2 or Scene 3 (the vending machine) || Fires DLG004 ("It's a human sausage vending machine."); sets <code>got_food</code> = true; adds a food item to inventory
+|-
+| P06 || <code>met_mariano</code> == true '''and''' inventory contains food || Click the Scene 11 NPC hotspot again || Fires DLG010 ("You keep the karma, read this book."); sets <code>gave_food</code> = true; removes food from inventory; adds a book item
+|-
+| P07 || inventory contains the book '''and''' <code>door_open</code> == false || Return to Scene 10, click the blocked door object again || Fires DLG013 (8.02 s, the longest line in the game — "You've proven yourself..."); sets <code>door_open</code> = true; Scene 9 becomes reachable
+|-
+| P08 || <code>door_open</code> == true || Walk through the now-unblocked door into Scene 9 || Scene 9 reached; from there the game continues '''backward''' through the Scene 7 hub to Scenes 8, 6, 5, and the 1–4 cluster — see the complete graph below
+|}
+
+{{Note|'''Correction: this puzzle sequence is not "linear and single-branch."''' An earlier revision of this article drew that conclusion honestly from the five scenes available at the time, which genuinely did form an unbranched chain. With the complete eleven-scene distribution obtained, Scenes 5 and 7 are confirmed junction rooms with three connections each (see the complete scene graph immediately below), meaning the explorable space is a branching graph, not a single corridor. The eight-step P01–P08 puzzle chain above remains accurate as the sequence of '''gating conditions''' — nothing about the flag logic itself changes — but it should not be read as implying the game's rooms form a straight line; Scenes 4, 6, 8 in particular are reachable at points along this chain without being strictly "on the path" P01–P08 describes, since the P01–P08 sequence tracks flag-gated progress, not room-by-room traversal order.}}
+
+== Relationship to the existing Alcachofa engine ==
+
+ScummVM already contains an engine internally named '''<code>alcachofa</code>''' (actively developed by Helco at the time of writing), targeting the early-2000s '''3D Mortadelo y Filemón''' titles for Windows. The name collision with this article's subject is coincidental — same studio, unrelated codebase and unrelated technology generation. Concretely, the existing engine is:
+
+* An OpenGL/TinyGL 3D renderer with a camera and world-space scene graph.
+* Driven by a real bytecode script virtual machine (a <code>ScriptOp</code> enum with 30-plus opcodes, procedures, and behaviors).
+* Built around its own binary resource formats (<code>.nkr</code>, <code>.BIN</code>) with no relation to <code>.ALD</code>/<code>.ALG</code>/<code>.ALS</code>.
+* Windows-native, not MS-DOS.
+
+None of the existing engine's rendering, scripting, or resource-loading code is reusable for the 1994 DOS title documented on this page: there is no shared bytecode VM to target (this title has none at all), no shared 3D pipeline (this title is 2D Mode 13h), and no shared file formats. A completely separate engine module is required. If this article's subject proceeds to implementation, using a distinct internal engine name (proposed: <code>paco1994</code>) avoids any ambiguity with the unrelated OpenGL engine in source, detection tables, and this wiki's own category structure.
+
+== ScummVM implementation ==
+
+=== Detection ===
+
+Minimum required files: <code>HARE.EXE</code> plus at least one matching <code>.ALD</code>/<code>.ALG</code> pair.
+
+{| class="wikitable"
+! File !! MD5 !! Size
+|-
+| HARE.EXE || <code>ed599780592c0302a571c88967e54b12</code> || 81,179
+|-
+| SCOVA.EXE || <code>d9c9f5aae31b5ee9beaeb8e9a492bf6c</code> || 77,863
+|-
+| PLAY.EXE || <code>7c0a32f587eaba83d41a4589e3bd7e7c</code> || 37,739
+|-
+| VPLAY.EXE || <code>b9301f9b7801693e202c9bffe544558d</code> || 20,893
+|-
+| SBFMDRV.COM || <code>382a4acdb8f3929a2c117826095f626e</code> || 6,183
+|}
+
+<syntaxhighlight lang="cpp">
+{
+    "pacohare1994",
+    nullptr,
+    AD_ENTRY1s("HARE.EXE", "ed599780592c0302a571c88967e54b12", 81179),
+    Common::ES_ESP,
+    Common::kPlatformDOS,
+    ADGF_FREEWARE | ADGF_UNSTABLE,
+    GUIO_NOSPEECH
+},
+</syntaxhighlight>
+
+<code>ADGF_UNSTABLE</code> is correct for the engine's current "Not Yet Implemented" status; this becomes <code>ADGF_TESTING</code> only once the engine moves to "Added." The detection table above (matching the pattern in real ScummVM engines such as <code>engines/efh/detection.cpp</code>, verified directly against the public ScummVM source repository) is normally embedded directly in <code>detection.cpp</code> — a separate <code>detection_tables.h</code> is not the typical layout for a small single-game engine, and this article's draft C++ code should be reorganized to match before submission.
+
+=== Build configuration ===
+
+Verified directly against the ScummVM source repository (<code>engines/*/configure.engine</code> across several small, dependency-free engines): the build-registration file follows a fixed field order, <code>add_engine [name] [desc] [build-by-default] [subengines] [base games] [deps] [components]</code>, with trailing empty fields omittable. A minimal, dependency-free entry for this engine:
+
+<syntaxhighlight lang="text">
+# engines/paco1994/configure.engine
+add_engine paco1994 "Paco1994" no
+</syntaxhighlight>
+
+<code>no</code> for build-by-default matches the convention for a "Not Yet Implemented" engine; real examples in the current source (e.g. <code>engines/efh/configure.engine</code>) show that trailing empty-string fields for subengines/base-games/dependencies can simply be omitted rather than written out as explicit <code>""</code> — Paco1994 needs no special dependency (no 16-bit color, no PNG, no Bink) so the three-argument form above is sufficient. A matching minimal <code>module.mk</code>, following the same real-engine pattern:
+
+<syntaxhighlight lang="make">
+MODULE := engines/paco1994
+
+MODULE_OBJS = \
+	ald_parser.o \
+	detection.o \
+	game_state.o \
+	interaction.o \
+	paco1994.o
+
+MODULE_DIRS += \
+	engines/paco1994
+
+ifeq ($(ENABLE_PACO1994), DYNAMIC_PLUGIN)
+PLUGIN := 1
+endif
+
+include $(srcdir)/rules.mk
+</syntaxhighlight>
+
+=== Reusable ScummVM subsystems ===
+
+No engine-specific code is reusable from the existing <code>alcachofa</code> engine (see previous section), but several general-purpose ScummVM subsystems require no modification at all:
+
+{| class="wikitable"
+! ScummVM subsystem !! Covers
+|-
+| <code>Image::PCXDecoder</code> (<code>image/pcx.h</code>) || <code>.ALG</code> backgrounds — standard PCX v3.0, no deviation found
+|-
+| <code>Audio::makeVOCStream</code> (<code>audio/decoders/voc.h</code>) || <code>.ALS</code> dialogue and SFX — standard VOC 1.10, no deviation found
+|-
+| <code>OPL::OPL</code> / OPL2 emulation (<code>audio/fmopl.h</code>) || CMF music playback, once a CMF sequencer is written to feed it (SBFMDRV.COM itself is not needed)
+|}
+
+What must be written from scratch: the <code>.ALD</code> parser (XOR-0xFF decode plus the field layout documented above, including the height-bug workaround), the hardcoded interaction/dialogue logic (there being no bytecode to interpret), the save-format reader/writer (pending resolution of the two open questions above), and the sprite compositor for <code>99.ALG</code> once that asset is located.
+
+=== Implementation status ===
+
+A prototype engine skeleton has been drafted following the "siloed logic" pattern — one small handler class per scene, rather than one monolithic switch statement, to keep the hardcoded per-scene logic testable and legible. Modules drafted so far: MZ/TDS static analysis tooling, an <code>.ALD</code> parser, a game-state/flag/inventory container, a per-scene interaction dispatcher, and a skeletal main engine class with the render-layer pipeline stubbed in. A parallel, fully working '''Python reference implementation''' (pygame-based, no C++ toolchain required to run it) exists and has been verified to correctly decode and render all five available scenes headlessly; it is intended purely as a behavioral reference for the eventual C++ port, not as a component to be shipped.
+
+The three excerpts below are taken directly from the drafted (not pseudocode) C++ source, to make concrete exactly how the format specifications earlier in this article translate into engine code.
+
+'''<code>AldParser::parseScene()</code> — the core parsing loop''' (full file: <code>ald_parser.cpp</code>), directly implementing the field layout from [[#.ALD — scene layout data|.ALD — scene layout data]] including the terminator check and the height-bug workaround noted there:
+
+<syntaxhighlight lang="cpp">
+// Step 4: Parse header fields
+uint cursor = 0;
+scene.sceneId   = lines[cursor++];      // Line 1: P$ — scene identifier
+scene.musicFile = lines[cursor++];      // Line 2: MU$(0) — CMF filename
+int16 nop = parseInt(lines[cursor++]);  // Line 3: NOP(0) — object count
+int16 nod = parseInt(lines[cursor++]);  // Line 4: NOD(0) — disc-object count
+
+// Step 5: Parse NOP on-screen objects (hotspots and doors)
+scene.objects.clear();
+for (int16 i = 0; i < nop; i++) {
+    AldObject obj;
+    obj.id   = parseInt(lines[cursor++]);  // NUM(I)
+    int16 x1 = parseInt(lines[cursor++]);  // X1(I)
+    int16 y1 = parseInt(lines[cursor++]);  // Y1(I)
+    int16 x2 = parseInt(lines[cursor++]);  // x2(I)
+    int16 y2 = parseInt(lines[cursor++]);  // y2(I)
+    obj.rect = Common::Rect(x1, y1, x2 + 1, y2 + 1); // ScummVM rects are half-open
+
+    int16 isDoor = parseInt(lines[cursor++]); // PUER(I): 0=object, 1=door
+    obj.isDoor = (isDoor != 0);
+
+    if (obj.isDoor) {
+        obj.destScene  = lines[cursor++];           // e.g. "5.ALD"
+        obj.destDoorId = parseInt(lines[cursor++]); // PDN(I)
+        obj.destPos    = parseInt(lines[cursor++]); // PPOS(I): 0=left,1=right,2=center
+    }
+    scene.objects.push_back(obj);
+}
+
+// Step 6: Validate terminator "99"
+if (cursor >= (uint)lines.size() || lines[cursor] != "99") {
+    warning("AldParser: Expected terminator '99' at line %u, got '%s'",
+            cursor, cursor < (uint)lines.size() ? lines[cursor].c_str() : "<EOF>");
+    return false;
+}
+cursor++; // consume "99"
+
+// Step 7: Parse NOD disc-object sprites
+// IMPORTANT: sheetRect.bottom = sheetRect.top + 39 (BUGGY in GRABAR).
+// Actual sprite height = 24px. Use AldDiscObject::kTrueHeight, NOT sheetRect.height().
+scene.discObjects.clear();
+// ... (mirrors the object loop above; see #99.ALG for the height-bug detail)
+</syntaxhighlight>
+
+'''<code>InteractionDispatcher::dispatchClick()</code> — the complete hotspot hit-test''' (full file: <code>interaction.cpp</code>), the direct C++ equivalent of the reconstructed <code>_comprueba(x,y)</code> pseudocode under [[#Reconstructed control flow (pseudocode)|Reconstructed control flow]]:
+
+<syntaxhighlight lang="cpp">
+bool InteractionDispatcher::dispatchClick(int16 x, int16 y,
+                                          const AldScene &scene,
+                                          GameState &state,
+                                          Paco1994Engine &eng) {
+    if (!_handler) {
+        warning("InteractionDispatcher: no handler for scene '%s'", _sceneId.c_str());
+        return false;
+    }
+
+    // Hit-test all ALD on-screen objects in order (matches original _comprueba loop)
+    // First match wins — objects are listed in ALD order from GRABAR.
+    for (uint i = 0; i < scene.objects.size(); i++) {
+        const AldObject &obj = scene.objects[i];
+
+        // Rect::contains() checks x1<=x<x2, y1<=y<y2 (half-open interval)
+        if (!obj.rect.contains(x, y))
+            continue;
+
+        if (obj.isDoor)
+            _handler->handleDoor(obj, state, eng);
+        else
+            _handler->handleObject(obj.id, state, eng);
+
+        return true; // hotspot hit
+    }
+
+    // No hotspot hit: Paco walks to click position (_lleva_al_hare)
+    return false;
+}
+</syntaxhighlight>
+
+'''Per-scene handler dispatch''' (full file: <code>interaction.h</code>/<code>.cpp</code>) — the "siloed logic" pattern itself, one small class per scene rather than one large <code>switch</code>, directly implementing the [[#Puzzle flag state machine|Puzzle flag state machine]] table above for Scene 10 (the security switch and the blocked door):
+
+<syntaxhighlight lang="cpp">
+void Scene10Handler::handleObject(int16 objId, GameState &state, Paco1994Engine &eng) {
+    if (objId == 40) {                          // security switch (P02)
+        if (!state.getFlag(kFlagSwitchUsed)) {
+            fireDialogue(kDlgSecurityDoor, state, eng);   // sets kFlagSwitchUsed
+        } else {
+            eng.showDialogue("The switch has already been activated.", "");
+        }
+    }
+}
+
+void Scene10Handler::handleDoor(const AldObject &obj, GameState &state, Paco1994Engine &eng) {
+    if (obj.id == 39) {                         // blocked door to Scene 9 (P01/P07)
+        if (state.getFlag(kFlagDoorOpen)) {
+            eng.transitionToScene(obj.destScene, obj.destDoorId, obj.destPos);
+        } else if (state.hasItem(kItemBook) && state.getFlag(kFlagReadBook)) {
+            fireDialogue(kDlgGuardPass1, state, eng);     // sets kFlagDoorOpen (P07)
+        } else {
+            fireDialogue(kDlgBlockedDoor, state, eng);    // P01
+        }
+    } else if (obj.id == 41) {
+        eng.transitionToScene(obj.destScene, obj.destDoorId, obj.destPos); // always passable
+    }
+}
+</syntaxhighlight>
+
+These three excerpts, together with the reference decoders under [[#File formats|File formats]] and the masked-blit/page-flip implementations under [[#Rendering pipeline|Rendering pipeline]], cover every piece of engine logic needed to reproduce the five available scenes' complete behavior in a from-scratch reimplementation.
+
+== Modding and community completion ==
+
+Because the spatial layer is fully data-driven, new or replacement scenes are mechanically straightforward to author once the format above is implemented: paint a 320×200 256-color PCX background, write a plain-text scene descriptor in the layout above and XOR-0xFF it, and record any dialogue as 21,739 Hz 8-bit unsigned mono VOC. Filling in the six missing scenes (4 through 9) to complete the game's narrative arc is technically approachable this way, but constitutes a derivative work and should be pursued only alongside the rights-clearance effort described in [[#Legal status|Legal status]] above, not ahead of it.
+
+== Gap analysis: what a reimplementation is still missing ==
+
+{{Note|'''This table has changed substantially since the previous revision.''' The complete original distribution (all eleven scenes, the sprite sheet, the voice driver, and all five music files) has since been obtained and cross-checked against every claim in this article. Most rows below have moved from "missing" to "available and verified"; the table is kept in this form, rather than deleted, specifically to show that progression.}}
+
+{| class="wikitable"
+! Item !! Status !! Detail
+|-
+| Paco's own sprite data (<code>_dir_hare_dch</code> / <code>_dir_hare_izq</code>) || '''Still not located — recharacterized''' || Confirmed '''not''' a separate external file: the complete distribution's full file listing (81 files) contains no additional sprite-sheet asset beyond <code>99.ALG</code>. Paco's sprite pixel data is therefore most likely embedded directly inside <code>HARE.EXE</code>'s own data segment, referenced by the two far pointers, rather than loaded from disk at runtime — this remains the single largest true gap, but the correct next step is now known precisely: search <code>HARE.EXE</code>'s data segment for an embedded PCX-like or raw-planar resource, not look for a missing file.
+|-
+| Scenes 4–9 (<code>.ALD</code>/<code>.ALG</code>/<code>.ALS</code>) || '''Resolved — obtained and fully parsed''' || All six previously-missing scenes are now documented under [[#.ALD — scene layout data|.ALD — scene layout data]] and the complete [[#Puzzle flag state machine|scene graph]]. This also resolved two long-standing open questions: Scene 1's "door to Scene 5" and the topology beyond Scene 10's blocked door.
+|-
+| <code>99.ALG</code> sprite sheet || '''Resolved — obtained, geometry and index formula both confirmed''' || See [[#99.ALG — shared sprite sheet (now obtained; geometry solved and verified against real pixels)|99.ALG]]. The source-code-only geometric reconstruction attempted before this file was available is confirmed byte-exact against the real pixels in every predicted cell.
+|-
+| <code>AULD.CMF</code>, <code>STARFM.CMF</code>, <code>JUEGO.CMF</code> || '''Resolved — obtained and header-verified''' || See [[#.CMF — background music (now fully verified against all five real files)|.CMF]].
+|-
+| <code>RANGE.CMF</code>, <code>ALLE.CMF</code> || '''Resolved — obtained; also corrects an earlier mischaracterization''' || Previously assumed to be unreferenced test/placeholder assets (they are not hardcoded as strings in <code>HARE.EXE</code>). Now confirmed as real, actively-used Scene 5/6/7 music, referenced dynamically via <code>.ALD</code> data rather than as executable strings. See the correction note under [[#.CMF — background music (now fully verified against all five real files)|.CMF]].
+|-
+| <code>ct-voice.drv</code> || '''Resolved — obtained; a prior unverifiable claim is now confirmed''' || A secondary source's specific claim about this file's entry point (a <code>JMP</code> to offset 0x0754, with a <code>"CT-VOICE"</code> identification string at offset 3) — previously logged as impossible to verify, since the file was unavailable — is now '''confirmed exactly''' against the real binary. Not needed for a ScummVM port regardless, which bypasses it via <code>Audio::makeVOCStream</code>.
+|-
+| <code>traga.pcx</code>, <code>traga2.pcx</code> || '''Resolved — obtained and decoded''' || Both are standard 320×200 PCX v3.0 files (identical format to the <code>.ALG</code> backgrounds) depicting two states of a slot-machine cabinet — three reel windows, a side lever, and colored button lights matching the confirmed <code>_enciende_boton_rojo/amarillo/verde</code> symbol set. This directly confirms the slot-machine subsystem previously documented from symbol names and dialogue strings alone.
+|-
+| Exact semantics of <code>_rompo</code>/<code>_rompo2</code>, the 7×16 byte table at 0xC630, and the precise <code>_graba_partida</code>/<code>_carga_partida</code> I/O sequence || '''Still open — unaffected by the new assets''' || These are behavioral/disassembly questions, not asset gaps; obtaining more files did not shed further light on them. See the relevant "Unresolved" notes throughout this article and the [[#Cross-verification log|Cross-verification log]].
+|-
+| Duration/full sequence data for <code>AULD.CMF</code> and <code>RANGE.CMF</code> || '''New, minor open item''' || A heuristic delta-time walker desynchronizes on these two files specifically (see [[#.CMF — background music (now fully verified against all five real files)|.CMF]]); the header fields are fully confirmed, only the derived duration estimate is unreliable for these two.
+|-
+| <code>CANCION.VOC</code> — a large (2.65 MB, ~2 minute) digitized PCM track discovered in the complete distribution || '''New discovery, purpose unresolved''' || 21,739 Hz mono PCM, chunked into 82 near-uniform ~1.5-second blocks (consistent with buffered disk streaming rather than a single in-memory load). The literal string <code>"CANCION"</code>/<code>"cancion.voc"</code> does not appear in <code>HARE.EXE</code>, <code>SCOVA.EXE</code>, or any editor source — meaning, like <code>RANGE.CMF</code> before the complete scene set was found, it may or may not be actively used; unlike that case, no <code>.ALD</code> field references it either, so it remains genuinely unresolved rather than merely under-searched. Possible explanations include an intro/credits sequence played by a separate tool (<code>PLAY.EXE</code>/<code>VPLAY.EXE</code>) outside the main dialogue system, or a development-time test recording.
+|}
+
+With scenes 4–9, the sprite sheet, the voice driver, and all five music files now obtained, a ScummVM reimplementation has access to essentially the complete original asset set. The one substantive remaining gap — Paco's own on-screen sprite — is now a precisely-scoped extraction task (search inside <code>HARE.EXE</code>) rather than an open-ended search for a missing external file.
+
+== Cross-verification log ==
+
+This article has absorbed material from more than one independent analysis pass, including at least one secondary source that mixed genuine findings with unverified or incorrect additions. In the interest of not silently propagating the incorrect portions — and of not silently discarding the substantial genuinely-useful portions either — every specific, falsifiable claim contributed by that pass was individually checked against the actual binaries before being either incorporated or excluded. This table is the complete record of that check.
+
+{| class="wikitable"
+! Claim !! Verdict !! Evidence
+|-
+| Boundary-safe TDS symbol count is ~398 || '''Revised to 348/347''' || Naive substring scanning inflates the count by slicing tokens mid-identifier; a boundary-safe re-extraction (token must start immediately after a non-identifier byte) gives 348 (<code>HARE.EXE</code>) / 347 (<code>SCOVA.EXE</code>), closer to an earlier 351 estimate than to 398
+|-
+| ~55 specific new symbol names across video, sprite, character, mouse, sound, and slot-machine subsystems || '''Confirmed''' || Individually checked present in the boundary-safe symbol set; incorporated throughout [[#HARE.EXE|HARE.EXE]]
+|-
+| <code>emws_*</code> EMS-manager symbol set (13 names) claimed present || '''This article's own initial verdict was wrong — retracted''' || Initially reported as absent due to a blind spot in this article's own boundary-safe scanner (see the full diagnosis under [[#Symbols claimed by a secondary source: partial retraction|HARE.EXE]]). The cluster is genuinely present, byte-identical, in both binaries — but the evidence points to a generic statically-linked 8087 floating-point emulation library component, not game-specific EMS-management code as originally guessed by this article and by the secondary source alike.
+|-
+| <code>__Int0Vector</code>/<code>__Int4Vector</code> constitute an INT 08h/INT 1Ch timer hook || '''Symbols confirmed, interpretation corrected''' || The symbols exist but index Borland CRT CPU-exception vectors (INT 0/4/5/6 decimal — divide error, overflow, etc.), not BIOS/DOS timer interrupts; see [[#Game loop and timing|Game loop and timing]]
+|-
+| SBFMDRV.COM entry point, identification string, and version/copyright string offsets || '''Confirmed exactly''' || <code>JMP</code> target 0x15DA, <code>"FMDRV"</code> at 0x0003, version string at 0x11B8, copyright string at 0x11E8 — all byte-exact matches; see [[#SBFMDRV.COM|SBFMDRV.COM]]
+|-
+| 24 embedded asset filenames with specific offsets || '''Confirmed exactly''' || All 24 found at the claimed offsets; see [[#Embedded strings and file references|Embedded strings and file references]]
+|-
+| 7 additional error-message strings with specific offsets || '''Confirmed exactly''' || All 7 found at the claimed offsets; incorporated
+|-
+| 104-byte "save buffer" embedded in <code>HARE.EXE</code> at 0xC628–0xC68F, with specific marker bytes at offsets 0x62 (<code>0x0F</code>) and 0x65 (<code>0x23</code>) || '''Rejected''' || Real bytes at those offsets are <code>0xB1</code> and <code>0x5F</code>; the range also starts inside a run of null padding with no structural boundary marker; see [[#Save format — GAMESAVE, AUXILIO, AUXILIAR|Save format]]
+|-
+| Save routine opens a file named <code>"auxilio"</code>, writes 104 bytes, applies <code>_codifica</code> (XOR-0xFF) || '''Contradicted by direct evidence''' || Real sample files <code>GAMESAVE</code>/<code>AUXILIO</code>/<code>AUXILIAR</code> are 100% plain ASCII text with no XOR transform; see [[#Save format — GAMESAVE, AUXILIO, AUXILIAR|Save format]]
+|-
+| Eight (later extended to seventeen) specific disassembly addresses (0x8775–0x8C65) are <code>CALL</code>/<code>JMP</code> instructions in the main loop || '''This article's own earlier verdict was wrong — now fully confirmed''' || The original "not confirmed" verdict resulted from '''this article's own incorrect offset-mapping assumption''' (adding the 512-byte header size to the logical address before locating it in the file). Re-tested using the correct convention (file offset = logical address directly, no header addition): all 17 claimed addresses resolve to the claimed opcode (<code>0x9A</code> FAR CALL or <code>0xE8</code> NEAR CALL), '''and''' every NEAR CALL's relative displacement, computed independently, lands exactly on the claimed target address — 17/17 confirmed, including the full jump-target chain. This is a correction to this article's own prior skepticism, not merely a secondary source's claim being accepted. See [[#Reconstructed control flow (pseudocode)|Reconstructed control flow]].
+|-
+| A "continuation-passing" 3-entry jump dispatcher at 0x8C52–0x8CA1, described as popping a return address, advancing it past the CALL opcode, and jumping through it || '''Confirmed, with one notation correction''' || The exact byte sequence is present at file offset 0x8C50 (2 bytes from the claimed 0x8C52, a labeling/counting difference rather than a content error). One imprecision: the claim's assembly notation writes the final jump as <code>JMP [CX]</code> (memory-indirect through the address stored at the location CX points to) — but <code>CX</code> is not a valid base/index register in 16-bit x86 real-mode addressing, so no disassembler can produce that operand form. The actual byte found (<code>FF E1</code>) is <code>JMP CX</code> (register-indirect: jump to the address held directly in CX), a different and perfectly valid encoding. The underlying discovery is correct; only the prose transcription of the addressing mode was imprecise.
+|-
+| This 3-entry jump dispatcher, and a related ASCII-scancode-to-index mapping routine, constitute "a small bytecode interpreter" comparable to Sierra SCI/AGI or LucasArts SCUMM || '''Mechanism confirmed; the framing is not adopted''' || The underlying jump-table/keyboard-shortcut mechanism is real (see above) and is a normal, mundane compiler/hand-optimization pattern for dispatching a small fixed set of keyboard shortcuts — not a general-purpose bytecode virtual machine driving game logic. This article does not adopt the Sierra SCI/AGI/SCUMM comparison: those engines interpret externally-stored bytecode for arbitrary puzzle/dialogue logic, which this game's puzzle and dialogue logic (confirmed extensively elsewhere in this article) does not have — it remains hardcoded C. A local jump-table for keyboard shortcuts does not change the [[#Overview|hybrid data-driven/hardcoded architecture]] finding at the top of this article.
+|-
+| CT-VOICE.DRV entry point and identification string at specific offsets || '''Now confirmed''' || Originally logged as unverifiable (file unavailable). Since obtained from the complete distribution: entry point is a <code>JMP near</code> to exactly 0x0754, with the <code>"CT-VOICE"</code> string confirmed at offset 0x0003 — both match the original claim exactly
+|-
+| Codebase attributed to a named individual, "Santiago Lancha" || '''Rejected''' || Name does not appear in any of six examined binaries/sources; the reasoning offered (Spanish-language strings) does not support identifying a specific person
+|-
+| 218 vs. 77 Borland CRT functions embedded || '''Internal contradiction in the source, not adjudicated''' || The secondary source states both figures in different sections without reconciling them; neither is repeated here as fact
+|-
+| Reconstructed initialization sequence, game loop, and hotspot-dispatch pseudocode || '''Plausible, consistent with verified symbols, presented as reconstruction''' || Matches the confirmed symbol table and existing puzzle-tree documentation; incorporated as illustrative pseudocode, not as a disassembly transcript
+|-
+| '''(Provenance note)''' A lengthy chat-log document attributed to Mistral, presenting a "multi-agent" analysis of the real decompiler outputs (the same <code>Decomp-paco</code> Ghidra/Reko files used throughout this section), plus a companion "v2" wiki draft || '''Mixed and specific -- checked claim by claim, not accepted or rejected as a block''' || This source's very first section illustrates the risk of trusting file-path labels without checking contents: it is headed as an analysis of <code>vplaydotexe/reko-decomp.txt</code>, but a directly adjoining section reuses the same "segment 0x0810" and explicitly parenthesizes it as <code>"(HARE.EXE)"</code> -- two different binaries. Direct inspection resolved this rather than assuming either the best or worst case: <code>HARE.EXE</code>'s real symbols (<code>_num_room</code>, <code>_hare_x</code>, <code>_escoba</code>, etc.) are confirmed absent from <code>PLAY.EXE</code>'s actual decompilation, so the file-identity mixing is real -- but the underlying "segment 0x0810" value is not itself invented: Reko genuinely labels <code>VPLAY.EXE</code>'s code with that segment number (946 occurrences confirmed directly), a labeling convention this article's own faster first pass initially and wrongly dismissed as fabricated by checking only Ghidra's different numbering. '''Specific claims checked on their own merits, independent of the file-identity confusion above:'''
+* <code>_VUELCA_PANTALLA</code> takes 8 parameters, not 2 (or 0) -- '''confirmed''', and this article's own prior description of the function as argument-free was wrong; see the full correction under [[#Page flip — corrected: _VUELCA_PANTALLA is an 8-parameter partial-blit function|Page flip]].
+* Slot-machine button coordinates, at least the red button at (62, 94) -- '''confirmed''' against a real <code>_VUELCA_PANTALLA</code> call site.
+* <code>_escoba</code> is "the verified main game loop" -- '''confirmed, on the second, more careful pass'''. This article's own first attempt to check this claim read only the loop's exit condition, not its full body, and wrongly reported the claim as refuted; a subsequent, independently-sourced document prompted a re-check that read the complete loop body and reversed that verdict -- see the full, corrected account under [[#HARE.EXE|HARE.EXE]]. The companion claim that this corrects an alleged prior reference to a symbol called <code>_main</code> remains unsupported: this article has never referenced any such symbol.
+|-
+| '''(Provenance note)''' A third document, styled as a "v3" revision of this article and evidently derived from it with additions, including a fully-cited (Reko line-number-referenced) walkthrough of the <code>_escoba</code> loop body and the <code>_graba_partida</code>/<code>_carga_partida</code> save routine || '''The specific, checkable claims verified directly and confirmed''' || Every line-numbered claim checked -- the loop body's content and call order, the mouse-hide/show pair, the F1/F2 keyboard bindings, the save routine's exact fprintf offset sequence and loop counts, the "wt"/"rt" file modes -- matched the real <code>reko-decomp.txt</code> exactly on direct inspection. This is credited as the source that prompted the <code>_escoba</code> correction above. Its broader self-description (a "Boomerang is 3x more verbose than Ghidra for SCOVA.EXE," "BinaryNinja matches Reko for VPLAY.EXE") was not independently re-verified line-by-line given the weight of evidence already gathered elsewhere in this pass; it is noted but not yet carried into this article's own text as confirmed fact.
+* Save format is plain text via <code>fprintf</code>/<code>fscanf</code>, not XOR-0xFF -- this '''does not contradict''' this article's own independently-reached, evidence-based conclusion (see [[#Save format — GAMESAVE, AUXILIO, AUXILIAR|Save format]]) that the real save files are plain ASCII text; it is corroborating, not corrective, though this article draws that conclusion from the save files themselves rather than from tracing <code>fprintf</code> call sites in the decompiled save routine directly.
+* <code>_carga_escoba</code>'s real body (genuine <code>fopen</code>/<code>fscanf</code> file-parsing logic, called from four sites) was not a claim this source made explicitly, but following its prompt to "compare decompilations" directly led to this discovery -- credited here as a case where checking a source's claim surfaced something the source itself did not report.
+|-
+| '''(Self-correction, not a secondary source)''' <code>RANGE.CMF</code>/<code>ALLE.CMF</code> are unreferenced orphaned test assets || '''This article's own earlier claim — retracted''' || Made honestly from an incomplete search (only <code>HARE.EXE</code>'s hardcoded strings were checked). The complete scene set showed both are real, actively-loaded scene music referenced dynamically via <code>.ALD</code> data; see [[#.CMF — background music (now fully verified against all five real files)|.CMF]]
+|-
+| '''(Self-correction, not a secondary source)''' <code>99.ALG</code>'s two sprite rows represent two visual states of the same 7 objects || '''This article's own earlier hypothesis — retracted''' || Offered honestly as the best reading available from only 2 real coordinate pairs. With 11 real pairs now available, the rows are confirmed to hold 14 independently-addressable sprites (indices 2–15), not 7 objects × 2 states; see [[#99.ALG — shared sprite sheet (now obtained; geometry solved and verified against real pixels)|99.ALG]]
+|-
+| '''(Provenance note)''' A family of six secondary analysis documents ("MiniMax family") || '''Self-identified as AI-generated; mixed reliability''' || See [[#Provenance note: the MiniMax family|full account below]]
+|-
+| '''(Provenance note)''' <code>PACO_EXE_Analisis_Forense</code>, analyzing a binary it calls <code>PACO.EXE</code> at ~134,224 bytes || '''Different origin from the MiniMax family; treated on its own terms''' || See [[#Provenance note: PACO_EXE_Analisis_Forense|full account below]]
+|}
+
+=== Provenance note: the MiniMax family ===
+
+A family of six secondary analysis documents examined across this article's research (titled variously <code>BINARY_ARCHAEOLOGY_FINAL</code>, <code>BYTECODE_DISPATCHER</code>, <code>COMPARATIVA_FINAL</code>, <code>PACO_HARE_1994_RE_ENGINE</code>, <code>PACO_HARE_1994_MASTER</code>, plus the already-covered <code>AUXILIO_format_analysis</code> and <code>HARE_EXE_CATALOGO_COMPLETO</code>) self-identifies its own authorship, in the master document, as "MiniMax," a separate AI system, dated July 2026.
+
+A consistent pattern emerges across the set: genuinely correct, independently-verifiable technical detail (the CT-VOICE.DRV and SBFMDRV.COM byte offsets, and the confirmed 17-address jump dispatcher — see [[#Reconstructed control flow (pseudocode)|Reconstructed control flow]]) sits alongside recurring fabrication and, in one case, an error that turned out to be this article's own rather than the source's:
+
+* '''Fabrication:''' "Santiago Lancha" as an author, searched for as an exact literal string per <code>PACO_HARE_1994_MASTER</code>'s own specific claim, and confirmed absent from every binary and source file examined.
+* '''This article's own error, since corrected:''' the <code>emws_*</code> symbol set, which multiple documents in this family correctly reported as present, was incorrectly marked absent in an earlier revision of this article due to a blind spot in its own verification tooling — see [[#Symbols claimed by a secondary source: partial retraction|the full diagnosis]].
+* '''Independently disproven factual errors:''' VOC version claimed as 1.20 (real value: 1.10); a systematic mislabeling of the real SS:SP header pair as CS:IP, appearing identically in two different documents in the set, for both <code>HARE.EXE</code> and <code>SCOVA.EXE</code> separately.
+* '''A repeated internal-arithmetic tell:''' three separate instances of a document's own supporting category breakdown failing to sum to its headline total — 347 vs. a claimed 398 for a symbol count, 16 vs. a claimed 17 for a CALL count, 131 vs. a claimed 130 for a verification-check count.
+* '''Fabricated content baked into compiled code:''' the family's accompanying <code>alcachofa_engine/</code> C source bakes several of these errors into constants (<code>PACO_SPRITE_W 40</code> against a directly-verified real value of 39; <code>PACO_VRAM_SIZE 65536</code> against a real, exact 64,000; swapped sample-rate labels for voice vs. sound-effect VOCs), and additionally invents gameplay features with no basis anywhere in the actual game (a named companion character, cloud save, achievements, cooperative multiplayer).
+
+None of this invalidates the set's genuinely correct portions, several of which are credited by name at their respective points in this article — but nothing from this family is taken on trust without the same direct byte-level check applied to every other source here.
+
+=== Provenance note: PACO_EXE_Analisis_Forense ===
+
+A separate document, <code>PACO_EXE_Analisis_Forense</code>, analyzes a binary it calls <code>PACO.EXE</code> at approximately 134,224 bytes. Every core numeric claim in it (file size, MZ header fields, relocation count) fails to match the real <code>HARE.EXE</code> examined throughout this article.
+
+However, its own internal "verified evidence" table honestly attributes the 134,224-byte figure to "user specification," not to independent measurement. That figure and filename match, exactly, the hypothetical starting premise given at the very beginning of this article's own research process, before any real game files had been supplied — strongly suggesting this document was produced by a parallel process working from that same initial, later-superseded premise, without ever receiving the real files this article's own analysis is built on, rather than fabricating a false measurement.
+
+Treated fairly on that basis: its foundational binary-structure claims (MZ header, memory map, interrupt vector table) do not describe the real file and are not incorporated, but several of its higher-level conclusions — reached from a genuinely different, much smaller evidence base (10 sample assets, by its own account) — are directionally correct and independently corroborate this article's own findings:
+
+* <code>.ALD</code> files are XOR-0xFF encrypted plaintext (confirmed).
+* The existing ScummVM <code>alcachofa</code> engine is architecturally incompatible, using a different asset format and its own bytecode VM for unrelated, later titles (confirmed, matching this article's own [[#Relationship to the existing Alcachofa engine|analysis]]).
+
+Its claimed VOC version, 1.20, is wrong (the real value, confirmed repeatedly throughout this article, is 1.10) — notably the '''same specific error''' made independently by <code>PACO_HARE_1994_MASTER</code> from the unrelated MiniMax family, a curious point of convergence rather than evidence either copied the other.
+
+== References and further material ==
+
+* Complete 348-entry (boundary-safe count) Borland TDS symbol table with inferred C signatures (companion document)
+* Six-language dialogue localization spreadsheet with hex offsets and flag effects (companion document)
+* Working Python 3 reference implementation (pygame), verified against all five available scenes
+* [[Engines/ScummVM Engine HowTo]]
+* [https://www.scummvm.org/credits/ ScummVM Credits] — Drascula/Alcachofa Soft precedent
+* [[Drascula: The Vampire Strikes Back]]
+
+[[Category:Engines]]
+[[Category:Engines Not Added to ScummVM]]
+[[Category:Paco1994]]

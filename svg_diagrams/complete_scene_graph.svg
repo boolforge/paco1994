@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="700" viewBox="0 0 1500 700">
+<rect width="1500" height="700" fill="#12141E"/>
+<style>text{font-family:"Segoe UI",Arial,sans-serif;} .lbl{fill:#96AADC;font-size:14px;} .nid{fill:#FFFFFF;font-size:16px;font-weight:bold;text-anchor:middle;dominant-baseline:central;} .ttl{fill:#DCE6FF;font-size:20px;} .sub{fill:#96AAC8;font-size:13px;} .note{fill:#C8D2E6;font-size:13px;} .hdr{fill:#FFC864;font-size:14px;font-weight:bold;}</style>
+<text x="750" y="30" text-anchor="middle" class="ttl">COMPLETE SCENE NAVIGATION GRAPH — Paco El Hare (1994) — All 11 Scenes</text>
+<text x="750" y="52" text-anchor="middle" class="sub">Verified from direct .ALD parsing of the complete DOSBox distribution (Feb 2024 Steam re-release source)</text>
+<line x1="110" y1="400" x2="260" y2="400" stroke="#6E96C8" stroke-width="3"/>
+<text x="185" y="388" text-anchor="middle" class="lbl">AULD.CMF</text>
+<line x1="260" y1="400" x2="410" y2="400" stroke="#6E96C8" stroke-width="3"/>
+<text x="335" y="388" text-anchor="middle" class="lbl">AULD.CMF</text>
+<line x1="410" y1="400" x2="410" y2="550" stroke="#6E96C8" stroke-width="3"/>
+<text x="410" y="463" text-anchor="middle" class="lbl">AULD.CMF</text>
+<line x1="110" y1="400" x2="560" y2="250" stroke="#6E96C8" stroke-width="3"/>
+<text x="335" y="313" text-anchor="middle" class="lbl">AULD/ALLE</text>
+<line x1="560" y1="250" x2="710" y2="250" stroke="#6E96C8" stroke-width="3"/>
+<text x="635" y="238" text-anchor="middle" class="lbl">ALLE.CMF</text>
+<line x1="710" y1="250" x2="860" y2="250" stroke="#6E96C8" stroke-width="3"/>
+<text x="785" y="238" text-anchor="middle" class="lbl">ALLE/RANGE</text>
+<line x1="860" y1="250" x2="860" y2="100" stroke="#6E96C8" stroke-width="3"/>
+<text x="860" y="163" text-anchor="middle" class="lbl">RANGE/STARFM</text>
+<line x1="860" y1="250" x2="1010" y2="250" stroke="#6E96C8" stroke-width="3"/>
+<text x="935" y="238" text-anchor="middle" class="lbl">RANGE/STARFM</text>
+<line x1="1010" y1="250" x2="1160" y2="250" stroke="#6E96C8" stroke-width="3"/>
+<text x="1085" y="238" text-anchor="middle" class="lbl">STARFM/AULD</text>
+<line x1="1160" y1="250" x2="1310" y2="250" stroke="#6E96C8" stroke-width="3"/>
+<text x="1235" y="238" text-anchor="middle" class="lbl">AULD/STARFM</text>
+<circle cx="110" cy="400" r="34" fill="#2878C8" stroke="#E6E6E6" stroke-width="2"/>
+<text x="110" y="400" class="nid">1</text>
+<circle cx="260" cy="400" r="34" fill="#2878C8" stroke="#E6E6E6" stroke-width="2"/>
+<text x="260" y="400" class="nid">2</text>
+<circle cx="410" cy="400" r="34" fill="#2878C8" stroke="#E6E6E6" stroke-width="2"/>
+<text x="410" y="400" class="nid">3</text>
+<circle cx="410" cy="550" r="26" fill="#8C3C3C" stroke="#E6E6E6" stroke-width="2"/>
+<text x="410" y="550" class="nid">4</text>
+<circle cx="560" cy="250" r="34" fill="#C88C1E" stroke="#E6E6E6" stroke-width="2"/>
+<text x="560" y="250" class="nid">5</text>
+<circle cx="710" cy="250" r="34" fill="#2878C8" stroke="#E6E6E6" stroke-width="2"/>
+<text x="710" y="250" class="nid">6</text>
+<circle cx="860" cy="250" r="34" fill="#C88C1E" stroke="#E6E6E6" stroke-width="2"/>
+<text x="860" y="250" class="nid">7</text>
+<circle cx="860" cy="100" r="26" fill="#8C3C3C" stroke="#E6E6E6" stroke-width="2"/>
+<text x="860" y="100" class="nid">8</text>
+<circle cx="1010" cy="250" r="34" fill="#2878C8" stroke="#E6E6E6" stroke-width="2"/>
+<text x="1010" y="250" class="nid">9</text>
+<circle cx="1160" cy="250" r="34" fill="#2878C8" stroke="#E6E6E6" stroke-width="2"/>
+<text x="1160" y="250" class="nid">10</text>
+<circle cx="1310" cy="250" r="34" fill="#2878C8" stroke="#E6E6E6" stroke-width="2"/>
+<text x="1310" y="250" class="nid">11</text>
+<circle cx="75" cy="635" r="15" fill="#2878C8" stroke="#E6E6E6" stroke-width="2"/>
+<text x="100" y="640" class="note">Linear chain room</text>
+<circle cx="315" cy="635" r="15" fill="#C88C1E" stroke="#E6E6E6" stroke-width="2"/>
+<text x="340" y="640" class="note">Hub / junction room (branches to 2+ destinations)</text>
+<circle cx="765" cy="635" r="15" fill="#8C3C3C" stroke="#E6E6E6" stroke-width="2"/>
+<text x="790" y="640" class="note">Dead-end side room (single connection)</text>
+<text x="60" y="566" class="hdr">Key correction vs. earlier (incomplete) analysis:</text>
+<text x="60" y="586" class="note">Scene 1's previously-unresolved "door to Scene 5" and Scene 10's puzzle-blocked path are now fully explained:</text>
+<text x="60" y="604" class="note">Scenes 5 and 7 are junction rooms, not simple chain links — the true topology is a branching graph, not the</text>
+<text x="60" y="622" class="note">linear 1→2→…→11 chain previously assumed from partial (5-of-11-scene) data.</text>
+</svg>
