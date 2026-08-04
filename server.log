@@ -1,0 +1,5 @@
+127.0.0.1 - - [04/Aug/2026 16:05:38] "HEAD /web/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [04/Aug/2026 16:07:37] "GET /web/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [04/Aug/2026 16:07:37] "GET /Paco1994_ScummVM_Wiki_Article.wiki HTTP/1.1" 200 -
+127.0.0.1 - - [04/Aug/2026 16:14:58] "GET /web/index.html HTTP/1.1" 200 -
+127.0.0.1 - - [04/Aug/2026 16:14:58] "GET /Paco1994_ScummVM_Wiki_Article.wiki HTTP/1.1" 200 -

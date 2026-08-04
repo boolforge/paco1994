@@ -32,6 +32,12 @@ class Paco1994Engine:
         self.background: pygame.Surface | None = None
         self.sprite_sheet: pygame.Surface | None = None
         self.font = pygame.font.SysFont(None, 14)
+
+        # Real-time movement interpolation
+        self._dest_x = self.state.hare_x
+        self._dest_y = self.state.hare_y
+        self._is_moving = False
+
         self._load_sprite_sheet()
 
     # -- Asset loading ------------------------------------------------------
@@ -61,10 +67,32 @@ class Paco1994Engine:
         self.state.scene_id = scene_id
         self.state.dialogue_active = False
         entry_x = {0: 20, 1: 300}.get(entry_pos, 160)
-        self.state.hare_x, self.state.hare_y = entry_x, 170
+        self.state.hare_x, self.state.hare_y = entry_x, 148
+        self._dest_x, self._dest_y = entry_x, 148
+        self._is_moving = False
 
     # -- Rendering (layer order confirmed via disassembly) ------------------
     def render_frame(self) -> pygame.Surface:
+        # Move Paco towards destination if moving
+        if self._is_moving:
+            dx = self._dest_x - self.state.hare_x
+            dy = self._dest_y - self.state.hare_y
+            dist = (dx**2 + dy**2)**0.5
+            speed = 4.0 # pixels per frame
+            if dist <= speed:
+                self.state.hare_x = self._dest_x
+                self.state.hare_y = self._dest_y
+                self._is_moving = False
+            else:
+                self.state.hare_x += int(speed * dx / dist)
+                self.state.hare_y += int(speed * dy / dist)
+
+            # Set facing direction based on horizontal movement
+            if dx > 0:
+                self.state.facing_right = True
+            elif dx < 0:
+                self.state.facing_right = False
+
         self.backbuf.fill((0, 0, 0))
         if self.background:
             self.backbuf.blit(self.background, (0, 0))
@@ -89,12 +117,63 @@ class Paco1994Engine:
                               area=pygame.Rect(x1, y1, w, h))
 
     def _render_paco(self) -> None:
-        # Placeholder: Paco's own sprite sheet was never located in the
-        # original distribution (confirmed absent -- see wiki Gap Analysis).
-        # Drawn as a labeled marker so scene composition is still verifiable.
-        r = pygame.Rect(self.state.hare_x - 6, self.state.hare_y - 18, 12, 22)
-        pygame.draw.rect(self.backbuf, (220, 30, 30), r)
-        pygame.draw.rect(self.backbuf, (255, 255, 255), r, 1)
+        # Check if we can render the actual walk-cycle silhouette from the sprite sheet
+        if not self.sprite_sheet:
+            r = pygame.Rect(self.state.hare_x - 6, self.state.hare_y - 18, 12, 22)
+            pygame.draw.rect(self.backbuf, (220, 30, 30), r)
+            pygame.draw.rect(self.backbuf, (255, 255, 255), r, 1)
+            return
+
+        # Paco walk-cycle frames are indices 13, 14, 15
+        walk_frames = [13, 14, 15]
+        if self._is_moving:
+            ticks = pygame.time.get_ticks()
+            frame_idx = (ticks // 150) % len(walk_frames)
+            frame_id = walk_frames[frame_idx]
+        else:
+            frame_id = 13  # standing idle frame
+
+        try:
+            x1, y1, x2, y2 = formats.sprite_sheet_rect(frame_id)
+            w, h = x2 - x1, y2 - y1
+
+            # Decode/apply transparency mask (Y offset + 56)
+            mask_x1, mask_y1, mask_x2, mask_y2 = formats.sprite_sheet_mask_rect(frame_id)
+
+            # Build cropped surfaces
+            temp_surf = pygame.Surface((w, h), depth=8)
+            temp_surf.set_palette(self.sprite_sheet.get_palette())
+            temp_surf.blit(self.sprite_sheet, (0, 0), pygame.Rect(x1, y1, w, h))
+
+            mask_surf = pygame.Surface((w, h), depth=8)
+            mask_surf.set_palette(self.sprite_sheet.get_palette())
+            mask_surf.blit(self.sprite_sheet, (0, 0), pygame.Rect(mask_x1, mask_y1, w, h))
+
+            paco_rgba = pygame.Surface((w, h), pygame.SRCALPHA)
+            palette = self.sprite_sheet.get_palette()
+
+            # Compositing utilizing the mask row
+            for y in range(h):
+                for x in range(w):
+                    color_idx = temp_surf.get_at((x, y))[0]
+                    mask_idx = mask_surf.get_at((x, y))[0]
+                    if mask_idx != 0:
+                        r, g, b, _ = palette[color_idx]
+                        paco_rgba.set_at((x, y), (r, g, b, 255))
+                    else:
+                        paco_rgba.set_at((x, y), (0, 0, 0, 0))
+
+            if not self.state.facing_right:
+                paco_rgba = pygame.transform.flip(paco_rgba, True, False)
+
+            px = self.state.hare_x - w // 2
+            py = self.state.hare_y - h
+            self.backbuf.blit(paco_rgba, (px, py))
+        except Exception:
+            # Fallback
+            r = pygame.Rect(self.state.hare_x - 6, self.state.hare_y - 18, 12, 22)
+            pygame.draw.rect(self.backbuf, (220, 30, 30), r)
+            pygame.draw.rect(self.backbuf, (255, 255, 255), r, 1)
 
     def _render_dialogue(self) -> None:
         box = pygame.Rect(0, DIALOGUE_BOX_Y, NATIVE_W, NATIVE_H - DIALOGUE_BOX_Y)
@@ -119,7 +198,12 @@ class Paco1994Engine:
             self.dismiss_dialogue()
             return
         if self.current_scene:
-            interaction.dispatch_click(x, y, self.current_scene, self.state, self)
+            hit = interaction.dispatch_click(x, y, self.current_scene, self.state, self)
+            if not hit:
+                # Set walk target, keeping Paco above the HUD line (y=148)
+                self._dest_x = x
+                self._dest_y = min(y, 148)
+                self._is_moving = True
 
     def save_game(self, path: str) -> None:
         Path(path).write_text(self.state.save_text())
