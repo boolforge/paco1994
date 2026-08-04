@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Paco1994 — Browser Demo (Pyodide)</title>
+<style>
+  body { background:#111; color:#ddd; font-family: monospace; text-align:center; }
+  canvas { image-rendering: pixelated; width: 640px; height: 400px; border: 2px solid #555; margin-top: 10px; }
+  #status { margin: 10px; min-height: 20px; }
+  #dialogue { max-width: 640px; margin: 0 auto; color: #9f9; min-height: 40px; }
+  a { color: #6cf; }
+</style>
+</head>
+<body>
+<h2>Paco El Hare vs Los Marcianos Siderales (1994) — Browser Reference Demo</h2>
+<p>Real decoded game assets, real puzzle logic, running in-browser via
+<a href="https://pyodide.org">Pyodide</a> (CPython compiled to WebAssembly).
+Click hotspots to interact. See the
+<a href="Paco1994_ScummVM_Wiki_Article.wiki">full technical wiki</a> for everything
+this is built from.</p>
+<div id="status">Loading Pyodide and game engine…</div>
+<canvas id="screen" width="320" height="200"></canvas>
+<div id="dialogue"></div>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+<script>
+async function main() {
+  const statusEl = document.getElementById('status');
+  const canvas = document.getElementById('screen');
+  const ctx = canvas.getContext('2d');
+  const dialogueEl = document.getElementById('dialogue');
+
+  let pyodide = await loadPyodide();
+  statusEl.textContent = "Pyodide loaded. Fetching engine + assets…";
+  await pyodide.loadPackage("numpy");
+
+  const pyFiles = ["engine/formats.py", "engine/game_data.py", "engine/interaction.py", "web/web_engine.py"];
+  pyodide.FS.mkdirTree("/engine");
+  for (const f of pyFiles) {
+    const resp = await fetch(f);
+    const text = await resp.text();
+    pyodide.FS.writeFile("/" + f, text);
+  }
+  pyodide.FS.writeFile("/engine/__init__.py", "");
+
+  statusEl.textContent = "Fetching original game assets…";
+  const assetList = await (await fetch("assets/original/manifest.json")).json();
+  pyodide.FS.mkdirTree("/assets/original");
+  for (const name of assetList) {
+    const buf = await (await fetch("assets/original/" + name)).arrayBuffer();
+    pyodide.FS.writeFile("/assets/original/" + name, new Uint8Array(buf));
+  }
+
+  pyodide.runPython(`
+import sys
+sys.path.insert(0, "/")
+sys.path.insert(0, "/web")
+import web_engine
+web_engine.init("/assets/original")
+`);
+
+  function draw() {
+    const w = 320, h = 200;
+    const flatPixels = pyodide.runPython("web_engine.get_frame_rgb()");
+    const arr = flatPixels.toJs();
+    const imgData = ctx.createImageData(w, h);
+    for (let i = 0; i < w*h; i++) {
+      imgData.data[i*4+0] = arr[i*3+0];
+      imgData.data[i*4+1] = arr[i*3+1];
+      imgData.data[i*4+2] = arr[i*3+2];
+      imgData.data[i*4+3] = 255;
+    }
+    ctx.putImageData(imgData, 0, 0);
+    dialogueEl.textContent = pyodide.runPython("web_engine.get_dialogue_text()");
+  }
+
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / rect.width * 320);
+    const y = Math.floor((e.clientY - rect.top) / rect.height * 200);
+    pyodide.runPython(`web_engine.handle_click(${x}, ${y})`);
+    draw();
+  });
+
+  statusEl.textContent = "Ready. Loaded scene 1.";
+  draw();
+}
+main();
+</script>
+</body>
+</html>
