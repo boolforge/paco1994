@@ -49,7 +49,15 @@ class Paco1994Engine:
         surf.set_palette(pal_colors)
         pygame.pixelcopy.array_to_surface(
             surf, __import__("numpy").frombuffer(pixels, dtype='uint8').reshape(h, w).T)
-        return surf.convert()
+        # NOTE: deliberately NOT calling .convert() here. .convert() maps to the
+        # display format (typically 24/32-bit RGB) and DISCARDS the indexed
+        # palette -- confirmed by direct reproduction to be exactly why
+        # _render_paco()'s later self.sprite_sheet.get_palette() call raised
+        # "pygame.error: Surface has no palette to get" and silently fell
+        # through to its except-fallback (the plain red placeholder square).
+        # Backgrounds blit fine without converting; the sprite sheet needs
+        # palette access preserved for masked per-frame compositing.
+        return surf
 
     def _load_sprite_sheet(self) -> None:
         p = self.assets_dir / "99"
@@ -124,14 +132,29 @@ class Paco1994Engine:
             pygame.draw.rect(self.backbuf, (255, 255, 255), r, 1)
             return
 
-        # Paco walk-cycle frames are indices 13, 14, 15
-        walk_frames = [13, 14, 15]
-        if self._is_moving:
+        # CORRECTION: indices 13/14/15 on the 99.ALG sheet are NOT Paco.
+        # Per the wiki's confirmed sprite-index formula (cross-validated
+        # against 11 real disc-object coordinates from parsed .ALD files),
+        # indices 2-15 are 14 real puzzle/inventory items -- index 13 is a
+        # specific item (column 5, row 1), not a walk-cycle frame. Using it
+        # here would silently render a wrong inventory item as if it were
+        # Paco, once the palette bug below is fixed and this code path
+        # stops throwing. Paco's own sprite data was never located in any
+        # known copy of the original distribution (see the wiki's Gap
+        # Analysis) -- there is currently nothing correct to draw here.
+        # Falling straight through to the labeled placeholder rather than
+        # guessing at a sprite-sheet index.
+        if True:
+            self._render_paco_placeholder()
+            return
+
+        walk_frames = [13, 14, 15]  # dead code, kept for when a real Paco
+        if self._is_moving:          # sprite source is found -- see TODO.md
             ticks = pygame.time.get_ticks()
             frame_idx = (ticks // 150) % len(walk_frames)
             frame_id = walk_frames[frame_idx]
         else:
-            frame_id = 13  # standing idle frame
+            frame_id = 13
 
         try:
             x1, y1, x2, y2 = formats.sprite_sheet_rect(frame_id)
@@ -170,10 +193,14 @@ class Paco1994Engine:
             py = self.state.hare_y - h
             self.backbuf.blit(paco_rgba, (px, py))
         except Exception:
-            # Fallback
-            r = pygame.Rect(self.state.hare_x - 6, self.state.hare_y - 18, 12, 22)
-            pygame.draw.rect(self.backbuf, (220, 30, 30), r)
-            pygame.draw.rect(self.backbuf, (255, 255, 255), r, 1)
+            self._render_paco_placeholder()
+
+    def _render_paco_placeholder(self) -> None:
+        """Honest placeholder: a labeled marker, not a misattributed sprite.
+        See the comment above _render_paco() and TODO.md."""
+        r = pygame.Rect(self.state.hare_x - 6, self.state.hare_y - 18, 12, 22)
+        pygame.draw.rect(self.backbuf, (220, 30, 30), r)
+        pygame.draw.rect(self.backbuf, (255, 255, 255), r, 1)
 
     def _render_dialogue(self) -> None:
         box = pygame.Rect(0, DIALOGUE_BOX_Y, NATIVE_W, NATIVE_H - DIALOGUE_BOX_Y)
