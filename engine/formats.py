@@ -193,3 +193,23 @@ def sprite_sheet_rect(sprite_id: int) -> tuple[int, int, int, int]:
 def sprite_sheet_mask_rect(sprite_id: int) -> tuple[int, int, int, int]:
     x1, y1, x2, y2 = sprite_sheet_rect(sprite_id)
     return x1, y1 + SPRITE_SHEET_MASK_Y_OFFSET, x2, y2 + SPRITE_SHEET_MASK_Y_OFFSET
+
+
+# Paco walk-cycle sprite: found in the SAME "99" sheet, bottom third
+# (y=123-200), never examined until now -- see wiki TODO. 2 rows (facing
+# right/left) x 8 walk frames, each with a color cell + corresponding
+# mask cell. Geometry below is approximate (clean 40px/8-col, ~19px row
+# split) pending pixel-exact confirmation -- flagged, not asserted final.
+PACO_SHEET_Y0 = 123
+PACO_CELL_W = 40
+PACO_CELL_H = 19
+
+def paco_sprite_rect(frame: int, facing_right: bool):
+    row = 0 if facing_right else 1
+    x1 = frame * PACO_CELL_W
+    y1 = PACO_SHEET_Y0 + row * PACO_CELL_H
+    return x1, y1, x1 + PACO_CELL_W, y1 + PACO_CELL_H
+
+def paco_mask_rect(frame: int, facing_right: bool):
+    x1, y1, x2, y2 = paco_sprite_rect(frame, facing_right)
+    return x1, y1 + 2*PACO_CELL_H, x2, y2 + 2*PACO_CELL_H
