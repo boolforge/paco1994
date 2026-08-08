@@ -144,24 +144,16 @@ class Paco1994Engine:
         # Analysis) -- there is currently nothing correct to draw here.
         # Falling straight through to the labeled placeholder rather than
         # guessing at a sprite-sheet index.
-        if True:
-            self._render_paco_placeholder()
-            return
-
-        walk_frames = [13, 14, 15]  # dead code, kept for when a real Paco
-        if self._is_moving:          # sprite source is found -- see TODO.md
-            ticks = pygame.time.get_ticks()
-            frame_idx = (ticks // 150) % len(walk_frames)
-            frame_id = walk_frames[frame_idx]
-        else:
-            frame_id = 13
+        # UPDATED: real Paco sprite located in the bottom third of the same
+        # 99 sheet (y=123-200), matching _pon_hare disassembly (8-frame walk
+        # cycle, direction branch). See formats.paco_sprite_rect/paco_mask_rect.
+        ticks = pygame.time.get_ticks()
+        frame_id = (ticks // 150) % 8 if self._is_moving else 0
 
         try:
-            x1, y1, x2, y2 = formats.sprite_sheet_rect(frame_id)
+            x1, y1, x2, y2 = formats.paco_sprite_rect(frame_id, self.state.facing_right)
             w, h = x2 - x1, y2 - y1
-
-            # Decode/apply transparency mask (Y offset + 56)
-            mask_x1, mask_y1, mask_x2, mask_y2 = formats.sprite_sheet_mask_rect(frame_id)
+            mask_x1, mask_y1, mask_x2, mask_y2 = formats.paco_mask_rect(frame_id, self.state.facing_right)
 
             # Build cropped surfaces
             temp_surf = pygame.Surface((w, h), depth=8)
